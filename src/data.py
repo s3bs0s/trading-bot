@@ -11,11 +11,15 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
 
-BINANCE_PUBLIC_API = "https://api.binance.com/api/v3/klines"
+BINANCE_PUBLIC_APIS = (
+    "https://api.binance.com/api/v3/klines",
+    "https://api.binance.us/api/v3/klines",
+)
 BINANCE_MAX_LIMIT = 1000
 
 
@@ -33,10 +37,19 @@ def _fetch_binance_batch(symbol: str, interval: str, limit: int, end_time_ms: in
     params = {"symbol": symbol.upper(), "interval": interval, "limit": limit}
     if end_time_ms is not None:
         params["endTime"] = end_time_ms
-    url = f"{BINANCE_PUBLIC_API}?{urlencode(params)}"
 
-    with urlopen(url, timeout=20) as response:
-        return json.loads(response.read().decode("utf-8"))
+    last_error: HTTPError | URLError | TimeoutError | None = None
+    for api_url in BINANCE_PUBLIC_APIS:
+        url = f"{api_url}?{urlencode(params)}"
+        try:
+            with urlopen(url, timeout=20) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except (HTTPError, URLError, TimeoutError) as error:
+            last_error = error
+
+    if last_error is not None:
+        raise RuntimeError("all public Binance candle endpoints failed") from last_error
+    raise RuntimeError("no public Binance candle endpoints configured")
 
 
 def _row_to_candle(row: list) -> Candle:
@@ -51,7 +64,7 @@ def _row_to_candle(row: list) -> Candle:
 
 
 def fetch_binance_klines(symbol: str = "BTCUSDT", interval: str = "1d", limit: int = 365) -> list[Candle]:
-    """Fetch public Binance candles without authentication."""
+    """Fetch public Binance-compatible candles without authentication."""
     if limit <= 0:
         raise ValueError("limit must be greater than zero")
 
