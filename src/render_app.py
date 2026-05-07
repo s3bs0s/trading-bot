@@ -151,6 +151,28 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: object) -> None:
         print(f"{self.address_string()} - {format % args}")
 
+    def do_HEAD(self) -> None:
+        path = urlparse(self.path).path
+        if path in ("/health", "/status"):
+            self.send_json(snapshot_status(), include_body=False)
+            return
+        if path == "/":
+            report_path = report_path_from_status()
+            if report_path is not None:
+                self.send_response(HTTPStatus.FOUND)
+                self.send_header("Location", f"/paper/{report_path.name}")
+                self.end_headers()
+                return
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        if path.startswith("/paper/"):
+            self.send_paper_file(path.removeprefix("/paper/"), include_body=False)
+            return
+        self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+
     def do_GET(self) -> None:
         path = urlparse(self.path).path
         if path == "/health":
@@ -167,14 +189,15 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
-    def send_json(self, payload: dict[str, object]) -> None:
+    def send_json(self, payload: dict[str, object], include_body: bool = True) -> None:
         body = json.dumps(payload, indent=2).encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if include_body:
+            self.wfile.write(body)
 
     def send_home(self) -> None:
         report_path = report_path_from_status()
@@ -215,7 +238,7 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
-    def send_paper_file(self, relative_path: str) -> None:
+    def send_paper_file(self, relative_path: str, include_body: bool = True) -> None:
         root = Path("reports/paper").resolve()
         target = (root / unquote(relative_path)).resolve()
         if root not in target.parents and target != root:
@@ -232,7 +255,8 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        if include_body:
+            self.wfile.write(body)
 
 
 def main() -> None:
