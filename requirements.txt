@@ -1,0 +1,2 @@
+# Version inicial: no requiere librerias externas para correr el backtest.
+# Mas adelante podemos agregar pandas, plotly, python-dotenv, ccxt o pytest.

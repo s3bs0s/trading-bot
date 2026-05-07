@@ -1,0 +1,19 @@
+services:
+  paper-bot:
+    build: .
+    command: python -m src.paper_service --config config/paper.example.json
+    restart: unless-stopped
+    volumes:
+      - ./paper_state:/app/paper_state
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+
+  report-server:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./reports:/usr/share/nginx/html:ro
+    depends_on:
+      - paper-bot

@@ -1,0 +1,13 @@
+{
+  "preset": "aggressive-eth-2h",
+  "initial_cash": 1000.0,
+  "fee_rate": 0.001,
+  "state_dir": "paper_state",
+  "report_dir": "reports/paper",
+  "bootstrap_history": 0,
+  "sleep_seconds": 60,
+  "error_sleep_seconds": 60,
+  "max_consecutive_errors": 10,
+  "log_dir": "logs",
+  "log_file": "paper_service.log"
+}
