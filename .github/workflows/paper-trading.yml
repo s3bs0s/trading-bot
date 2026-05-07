@@ -1,0 +1,91 @@
+name: Paper trading report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: paper-trading
+  cancel-in-progress: false
+
+jobs:
+  update-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore generated paper state
+        shell: bash
+        run: |
+          git fetch origin paper-live || true
+          if git rev-parse --verify origin/paper-live >/dev/null 2>&1; then
+            git checkout origin/paper-live -- paper_state reports public || true
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --no-cache-dir -r requirements.txt
+
+      - name: Run one paper trading cycle
+        run: python -m src.paper_service --once --config config/paper.example.json
+
+      - name: Prepare GitHub Pages files
+        shell: bash
+        run: |
+          rm -rf public
+          mkdir -p public
+          cp -R reports/* public/
+          cat > public/index.html <<'HTML'
+          <!doctype html>
+          <html lang="es">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="0; url=paper/paper_aggressive-eth-2h_ETHUSDT_2h.html">
+            <title>Trading bot paper report</title>
+          </head>
+          <body>
+            <p>Abriendo reporte paper...</p>
+            <p><a href="paper/paper_aggressive-eth-2h_ETHUSDT_2h.html">Abrir reporte</a></p>
+          </body>
+          </html>
+          HTML
+
+      - name: Save generated paper state
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B paper-live
+          git add -f paper_state reports public
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+          else
+            git commit -m "Update paper trading report [skip ci]"
+            git push --force-with-lease origin paper-live
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -50,3 +50,28 @@ docker compose up -d --build
 - No pongas API keys en GitHub.
 - No abras puertos innecesarios.
 - Para real money, primero se necesita testnet/read-only, limites de riesgo y confirmacion explicita.
+
+## Alternativa sin VPS: GitHub Actions + Pages
+
+El repo incluye `.github/workflows/paper-trading.yml`.
+
+Que hace:
+
+- Ejecuta el paper bot cada 5 minutos.
+- Guarda `paper_state/` y `reports/` en la rama `paper-live`.
+- Publica el reporte en GitHub Pages.
+
+Para activarlo:
+
+1. Ve al repo en GitHub.
+2. Abre `Actions`.
+3. Ejecuta manualmente `Paper trading report` con `Run workflow`.
+4. Ve a `Settings > Pages` y confirma que la fuente sea `GitHub Actions`.
+
+URL esperada:
+
+```text
+https://s3bs0s.github.io/trading-bot/
+```
+
+Nota: GitHub Actions no es un servidor prendido segundo a segundo; es una tarea programada. Para esta estrategia de 2h sirve porque revisa cada 5 minutos.

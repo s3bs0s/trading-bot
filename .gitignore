@@ -9,3 +9,4 @@ reports/
 paper_state/
 logs/
 config/paper.local.json
+public/
