@@ -20,6 +20,9 @@ concurrency:
 jobs:
   update-report:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,7 +34,7 @@ jobs:
         run: |
           git fetch origin paper-live || true
           if git rev-parse --verify origin/paper-live >/dev/null 2>&1; then
-            git checkout origin/paper-live -- paper_state reports public || true
+            git checkout origin/paper-live -- paper_state reports || true
           fi
 
       - name: Set up Python
@@ -70,16 +73,19 @@ jobs:
       - name: Save generated paper state
         shell: bash
         run: |
+          cp -R public /tmp/paper-public
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B paper-live
-          git add -f paper_state reports public
+          git add -f paper_state reports
           if git diff --cached --quiet; then
             echo "No generated changes to commit."
           else
             git commit -m "Update paper trading report [skip ci]"
             git push --force-with-lease origin paper-live
           fi
+          rm -rf public
+          cp -R /tmp/paper-public public
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
