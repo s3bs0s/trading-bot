@@ -310,6 +310,32 @@ URL esperada despues de activar Pages:
 https://s3bs0s.github.io/trading-bot/
 ```
 
+## Render
+
+Para usar Render como servicio web:
+
+- Tipo: Web Service.
+- Runtime: Docker.
+- Repo: `s3bs0s/trading-bot`.
+- Health check: `/health`.
+- URL principal: abre el reporte HTML.
+
+Variables opcionales:
+
+```text
+PAPER_PRESET=aggressive-eth-2h
+PAPER_INITIAL_CASH=1000
+PAPER_SLEEP_SECONDS=60
+```
+
+La URL de Render mostrara el reporte en:
+
+```text
+https://TU-SERVICIO.onrender.com/
+```
+
+La ruta `/health` responde JSON para monitoreo y para mantener despierto el servicio con un monitor externo. Sigue siendo paper trading: no usa API keys y no envia ordenes reales.
+
 ## Proximos pasos
 
 1. Ejecutar el primer backtest y leer los resultados.
