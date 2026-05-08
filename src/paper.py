@@ -26,7 +26,7 @@ from src.risk import RiskConfig, RiskManager, RiskState
 from src.strategy import BUY, SELL, PullbackInUptrend
 
 
-PAPER_PRESETS = ["aggressive-eth-2h", "stable-sol-4h", "experimental-eth-1m"]
+PAPER_PRESETS = ["aggressive-eth-2h", "active-eth-1h", "stable-sol-4h", "experimental-eth-1m"]
 
 
 @dataclass
@@ -131,6 +131,34 @@ def build_preset(name: str) -> PaperPreset:
             strategy=build_aggressive_strategy(candidate),
             risk_config=build_aggressive_risk(candidate),
             lookback_candles=260,
+        )
+
+    if name == "active-eth-1h":
+        candidate = AggressiveCandidate(
+            symbol="ETHUSDT",
+            interval="1h",
+            strategy_name="breakout",
+            fast_window=8,
+            trend_window=50,
+            signal_window=6,
+            signal_pct=0.001,
+            stop_loss_pct=0.02,
+            take_profit_pct=0.04,
+            trailing_stop_pct=0.005,
+            trailing_activation_pct=0.006,
+            position_size_pct=0.50,
+            rsi_min=50.0,
+            rsi_max=75.0,
+            volume_ratio=1.0,
+        )
+        return PaperPreset(
+            name=name,
+            symbol=candidate.symbol,
+            interval=candidate.interval,
+            strategy_label=f"active_1h_{candidate.label}",
+            strategy=build_aggressive_strategy(candidate),
+            risk_config=build_aggressive_risk(candidate),
+            lookback_candles=360,
         )
 
     if name == "stable-sol-4h":

@@ -12,7 +12,7 @@ import os
 import threading
 import traceback
 from argparse import Namespace
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from html import escape
 from http import HTTPStatus
@@ -21,8 +21,34 @@ from pathlib import Path
 from time import sleep
 from urllib.parse import unquote, urlparse
 
-from src.paper import run_once
+from src.paper import PAPER_PRESETS, run_once
 from src.paper_service import PaperServiceConfig, last_equity, load_config
+
+
+DEFAULT_RENDER_PRESETS = ("aggressive-eth-2h", "active-eth-1h")
+
+PRESET_DESCRIPTIONS = {
+    "aggressive-eth-2h": {
+        "title": "Base agresiva 2h",
+        "summary": "Estrategia principal actual. Busca rupturas en ETH con velas de 2 horas. Opera poco, filtra mas ruido y sirve como comparacion base.",
+        "risk": "Menos activa; puede pasar uno o varios dias sin operar.",
+    },
+    "active-eth-1h": {
+        "title": "Activa ETH 1h",
+        "summary": "Experimento mas activo. Busca rupturas en ETH con velas de 1 hora, stop loss, take profit y trailing stop.",
+        "risk": "Mas oportunidades, pero tambien mas falsas entradas y mas comisiones simuladas.",
+    },
+    "stable-sol-4h": {
+        "title": "Estable SOL 4h",
+        "summary": "Candidato mas conservador por validacion rolling. Busca pullbacks en SOL con velas de 4 horas.",
+        "risk": "Mas lento; pensado para comparar consistencia.",
+    },
+    "experimental-eth-1m": {
+        "title": "Visual ETH 1m",
+        "summary": "Solo para ver movimiento rapido en velas de 1 minuto.",
+        "risk": "No validado para buscar ganancias; demasiado ruidoso.",
+    },
+}
 
 
 @dataclass
@@ -42,6 +68,7 @@ class AppStatus:
     last_action: str = "START"
     processed_last_cycle: int = 0
     equity: float = 0.0
+    reports: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 STATUS = AppStatus(started_at="")
@@ -53,10 +80,9 @@ def utc_text() -> str:
     return datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
-def apply_env_overrides(config: PaperServiceConfig) -> PaperServiceConfig:
+def apply_env_overrides(config: PaperServiceConfig, include_preset: bool = True) -> PaperServiceConfig:
     values = asdict(config)
     env_map = {
-        "PAPER_PRESET": ("preset", str),
         "PAPER_INITIAL_CASH": ("initial_cash", float),
         "PAPER_FEE_RATE": ("fee_rate", float),
         "PAPER_STATE_DIR": ("state_dir", str),
@@ -65,6 +91,9 @@ def apply_env_overrides(config: PaperServiceConfig) -> PaperServiceConfig:
         "PAPER_SLEEP_SECONDS": ("sleep_seconds", int),
         "PAPER_ERROR_SLEEP_SECONDS": ("error_sleep_seconds", int),
     }
+    if include_preset:
+        env_map["PAPER_PRESET"] = ("preset", str)
+
     for env_name, (field_name, parser) in env_map.items():
         raw_value = os.getenv(env_name)
         if raw_value not in (None, ""):
@@ -72,9 +101,22 @@ def apply_env_overrides(config: PaperServiceConfig) -> PaperServiceConfig:
     return PaperServiceConfig(**values)
 
 
-def load_render_config() -> PaperServiceConfig:
+def parse_preset_names(raw_value: str | None) -> list[str]:
+    if not raw_value:
+        return list(DEFAULT_RENDER_PRESETS)
+
+    names = [name.strip() for name in raw_value.split(",") if name.strip()]
+    return names or list(DEFAULT_RENDER_PRESETS)
+
+
+def load_render_configs() -> list[PaperServiceConfig]:
     config_path = Path(os.getenv("PAPER_CONFIG", "config/paper.example.json"))
-    return apply_env_overrides(load_config(config_path))
+    base_config = apply_env_overrides(load_config(config_path), include_preset=False)
+    preset_names = parse_preset_names(os.getenv("PAPER_PRESETS"))
+    unknown_presets = sorted(set(preset_names) - set(PAPER_PRESETS))
+    if unknown_presets:
+        raise ValueError(f"unknown paper presets for Render: {', '.join(unknown_presets)}")
+    return [replace(base_config, preset=preset) for preset in preset_names]
 
 
 def paper_args(config: PaperServiceConfig) -> Namespace:
@@ -95,48 +137,90 @@ def update_status(**changes: object) -> None:
             setattr(STATUS, name, value)
 
 
+def update_report_status(preset: str, **changes: object) -> None:
+    with STATUS_LOCK:
+        current = dict(STATUS.reports.get(preset, {}))
+        current.update(changes)
+        STATUS.reports[preset] = current
+
+        STATUS.cycles += 1
+        STATUS.last_check_at = str(changes.get("last_check_at") or STATUS.last_check_at)
+        STATUS.last_success_at = str(changes.get("last_success_at") or STATUS.last_success_at)
+        STATUS.last_error_at = str(changes.get("last_error_at") or STATUS.last_error_at)
+        STATUS.last_error = str(changes.get("last_error") or "")
+        STATUS.latest_report = str(changes.get("latest_report") or STATUS.latest_report)
+        STATUS.latest_csv = str(changes.get("latest_csv") or STATUS.latest_csv)
+        STATUS.state_file = str(changes.get("state_file") or STATUS.state_file)
+        STATUS.symbol = str(changes.get("symbol") or STATUS.symbol)
+        STATUS.interval = str(changes.get("interval") or STATUS.interval)
+        STATUS.preset = preset
+        STATUS.last_action = str(changes.get("last_action") or STATUS.last_action)
+        STATUS.processed_last_cycle = int(changes.get("processed_last_cycle") or 0)
+        STATUS.equity = float(changes.get("equity") or STATUS.equity)
+
+
 def snapshot_status() -> dict[str, object]:
     with STATUS_LOCK:
         payload = asdict(STATUS)
-    payload["ok"] = not bool(payload["last_error"])
+    reports = payload.get("reports", {})
+    report_errors = [report.get("last_error") for report in reports.values()]
+    payload["ok"] = not bool(payload["last_error"]) and not any(report_errors)
     return payload
 
 
-def paper_loop(config: PaperServiceConfig) -> None:
+def paper_loop(configs: list[PaperServiceConfig]) -> None:
     while not STOP_EVENT.is_set():
-        try:
-            html_path, csv_path, state_file, processed, state = run_once(paper_args(config))
-            update_status(
-                cycles=snapshot_status()["cycles"] + 1,
-                last_check_at=utc_text(),
-                last_success_at=utc_text(),
-                last_error="",
-                latest_report=str(html_path),
-                latest_csv=str(csv_path),
-                state_file=str(state_file),
-                symbol=state.symbol,
-                interval=state.interval,
-                preset=state.preset,
-                last_action=state.last_action,
-                processed_last_cycle=processed,
-                equity=last_equity(state),
-            )
-        except Exception as error:
-            update_status(
-                cycles=snapshot_status()["cycles"] + 1,
-                last_check_at=utc_text(),
-                last_error_at=utc_text(),
-                last_error=f"{type(error).__name__}: {error}",
-            )
-            traceback.print_exc()
-            sleep(max(10, config.error_sleep_seconds))
-            continue
+        error_sleep_seconds = 60
+        sleep_seconds = 60
+        had_error = False
+        for config in configs:
+            error_sleep_seconds = max(error_sleep_seconds, config.error_sleep_seconds)
+            sleep_seconds = max(sleep_seconds, config.sleep_seconds)
+            try:
+                html_path, csv_path, state_file, processed, state = run_once(paper_args(config))
+                now = utc_text()
+                update_report_status(
+                    config.preset,
+                    cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
+                    last_check_at=now,
+                    last_success_at=now,
+                    last_error="",
+                    latest_report=str(html_path),
+                    latest_csv=str(csv_path),
+                    state_file=str(state_file),
+                    symbol=state.symbol,
+                    interval=state.interval,
+                    preset=state.preset,
+                    last_action=state.last_action,
+                    processed_last_cycle=processed,
+                    equity=last_equity(state),
+                    trades=len(state.trades),
+                    open_position=state.position_qty > 0,
+                )
+            except Exception as error:
+                had_error = True
+                now = utc_text()
+                update_report_status(
+                    config.preset,
+                    cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
+                    last_check_at=now,
+                    last_error_at=now,
+                    last_error=f"{type(error).__name__}: {error}",
+                    preset=config.preset,
+                )
+                traceback.print_exc()
 
-        STOP_EVENT.wait(max(30, config.sleep_seconds))
+        if had_error:
+            STOP_EVENT.wait(max(10, error_sleep_seconds))
+        else:
+            STOP_EVENT.wait(max(30, sleep_seconds))
 
 
-def report_path_from_status() -> Path | None:
-    latest_report = snapshot_status().get("latest_report")
+def report_path_from_status(preset: str | None = None) -> Path | None:
+    status = snapshot_status()
+    latest_report = status.get("latest_report")
+    if preset is not None:
+        latest_report = status.get("reports", {}).get(preset, {}).get("latest_report")
     if not latest_report:
         return None
     path = Path(str(latest_report))
@@ -200,31 +284,82 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def send_home(self) -> None:
-        report_path = report_path_from_status()
-        if report_path is not None:
-            self.send_response(HTTPStatus.FOUND)
-            self.send_header("Location", f"/paper/{report_path.name}")
-            self.end_headers()
-            return
-
         status = snapshot_status()
+        reports = status.get("reports", {})
+        cards = []
+        for preset in parse_preset_names(os.getenv("PAPER_PRESETS")):
+            report = reports.get(preset, {})
+            details = PRESET_DESCRIPTIONS.get(
+                preset,
+                {
+                    "title": preset,
+                    "summary": "Reporte paper trading.",
+                    "risk": "Revisar resultados antes de confiar en el candidato.",
+                },
+            )
+            latest_report = str(report.get("latest_report") or "")
+            report_name = Path(latest_report).name if latest_report else ""
+            report_link = f"/paper/{escape(report_name)}" if report_name else "#"
+            disabled = " disabled" if not report_name else ""
+            cards.append(
+                f"""<article class="card">
+    <div class="card-top">
+      <h2>{escape(details["title"])}</h2>
+      <span>{escape(str(report.get("interval") or "?"))}</span>
+    </div>
+    <p>{escape(details["summary"])}</p>
+    <p class="risk">{escape(details["risk"])}</p>
+    <dl>
+      <div><dt>Ultima revision</dt><dd>{escape(str(report.get("last_success_at") or "pendiente"))}</dd></div>
+      <div><dt>Accion</dt><dd>{escape(str(report.get("last_action") or "START"))}</dd></div>
+      <div><dt>Trades</dt><dd>{escape(str(report.get("trades") or 0))}</dd></div>
+      <div><dt>Capital</dt><dd>{escape(f'{float(report.get("equity") or 0):,.2f} USDT')}</dd></div>
+    </dl>
+    <a class="button{disabled}" href="{report_link}">Abrir reporte</a>
+  </article>"""
+            )
+
         body = f"""<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="refresh" content="15">
-  <title>Paper trading iniciando</title>
+  <meta http-equiv="refresh" content="30">
+  <title>Trading bot paper reports</title>
   <style>
-    body {{ font-family: Arial, sans-serif; margin: 40px; color: #071427; }}
-    code {{ background: #eef3fb; padding: 2px 6px; border-radius: 4px; }}
+    body {{ margin: 0; font-family: Arial, sans-serif; color: #071427; background: #f4f7fb; }}
+    header {{ background: #101827; color: white; padding: 40px 56px; }}
+    main {{ max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }}
+    h1 {{ margin: 0 0 8px; font-size: 44px; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }}
+    .card {{ background: white; border: 1px solid #d7e0ef; border-radius: 8px; padding: 22px; }}
+    .card-top {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
+    .card-top span {{ border: 1px solid #d7e0ef; border-radius: 999px; padding: 6px 10px; color: #496183; }}
+    h2 {{ margin: 0; font-size: 24px; }}
+    p {{ color: #415675; line-height: 1.45; }}
+    .risk {{ color: #8a5a12; }}
+    dl {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }}
+    dt {{ color: #5b7194; font-size: 13px; }}
+    dd {{ margin: 4px 0 0; font-weight: 700; }}
+    .button {{ display: inline-block; background: #0f766e; color: white; text-decoration: none; padding: 11px 14px; border-radius: 6px; font-weight: 700; }}
+    .button.disabled {{ background: #8da0bc; pointer-events: none; }}
+    .note {{ margin-top: 22px; background: #fff7e8; border-left: 4px solid #b7791f; padding: 16px 18px; border-radius: 6px; }}
   </style>
 </head>
 <body>
-  <h1>Paper trading iniciando</h1>
-  <p>El servidor esta vivo. El reporte aparecera aqui cuando termine el primer ciclo.</p>
-  <p>Ultimo chequeo: {escape(str(status.get("last_check_at") or "pendiente"))}</p>
-  <p>Estado tecnico: <code>{escape(str(status.get("last_error") or "ok"))}</code></p>
+  <header>
+    <h1>Trading bot paper reports</h1>
+    <p>Simulacion con dinero ficticio. No usa API keys, no toca Binance real y no envia ordenes reales.</p>
+  </header>
+  <main>
+    <div class="grid">
+      {''.join(cards)}
+    </div>
+    <div class="note">
+      El reporte base cuida mas el ruido. El reporte activo busca mas oportunidades. Comparalos por varios dias antes de sacar conclusiones.
+      Ultimo chequeo general: {escape(str(status.get("last_check_at") or "pendiente"))}.
+    </div>
+  </main>
 </body>
 </html>"""
         self.send_html(body)
@@ -260,10 +395,14 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    config = load_render_config()
-    update_status(started_at=utc_text(), preset=config.preset, equity=config.initial_cash)
+    configs = load_render_configs()
+    update_status(
+        started_at=utc_text(),
+        preset=",".join(config.preset for config in configs),
+        equity=sum(config.initial_cash for config in configs),
+    )
 
-    worker = threading.Thread(target=paper_loop, args=(config,), daemon=True)
+    worker = threading.Thread(target=paper_loop, args=(configs,), daemon=True)
     worker.start()
 
     port = int(os.getenv("PORT", "10000"))

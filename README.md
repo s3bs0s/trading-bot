@@ -304,23 +304,26 @@ Para usar Render como servicio web:
 - Runtime: Docker.
 - Repo: `s3bs0s/trading-bot`.
 - Health check: `/health`.
-- URL principal: abre el reporte HTML.
+- URL principal: muestra un menu para abrir los reportes paper.
 
 Variables opcionales:
 
 ```text
-PAPER_PRESET=aggressive-eth-2h
+PAPER_PRESETS=aggressive-eth-2h,active-eth-1h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
 ```
 
-La URL de Render mostrara el reporte en:
+La URL de Render mostrara un menu con dos reportes:
+
+- `aggressive-eth-2h`: base actual, menos activa, usa velas de 2 horas.
+- `active-eth-1h`: experimento mas activo, usa velas de 1 hora.
 
 ```text
 https://TU-SERVICIO.onrender.com/
 ```
 
-La ruta `/health` responde JSON para monitoreo y para mantener despierto el servicio con un monitor externo. Sigue siendo paper trading: no usa API keys y no envia ordenes reales.
+La ruta `/health` responde JSON para monitoreo y para mantener despierto el servicio con un monitor externo. Sigue siendo paper trading: no usa API keys y no envia ordenes reales. Cada reporte guarda su propio estado ficticio y sus operaciones por separado.
 
 ## Proximos pasos
 
