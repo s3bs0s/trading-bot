@@ -137,11 +137,11 @@ def update_status(**changes: object) -> None:
             setattr(STATUS, name, value)
 
 
-def update_report_status(preset: str, **changes: object) -> None:
+def update_report_status(preset_name: str, **changes: object) -> None:
     with STATUS_LOCK:
-        current = dict(STATUS.reports.get(preset, {}))
+        current = dict(STATUS.reports.get(preset_name, {}))
         current.update(changes)
-        STATUS.reports[preset] = current
+        STATUS.reports[preset_name] = current
 
         STATUS.cycles += 1
         STATUS.last_check_at = str(changes.get("last_check_at") or STATUS.last_check_at)
@@ -153,7 +153,7 @@ def update_report_status(preset: str, **changes: object) -> None:
         STATUS.state_file = str(changes.get("state_file") or STATUS.state_file)
         STATUS.symbol = str(changes.get("symbol") or STATUS.symbol)
         STATUS.interval = str(changes.get("interval") or STATUS.interval)
-        STATUS.preset = preset
+        STATUS.preset = preset_name
         STATUS.last_action = str(changes.get("last_action") or STATUS.last_action)
         STATUS.processed_last_cycle = int(changes.get("processed_last_cycle") or 0)
         STATUS.equity = float(changes.get("equity") or STATUS.equity)
@@ -168,52 +168,54 @@ def snapshot_status() -> dict[str, object]:
     return payload
 
 
-def paper_loop(configs: list[PaperServiceConfig]) -> None:
+def paper_loop(config: PaperServiceConfig) -> None:
     while not STOP_EVENT.is_set():
-        error_sleep_seconds = 60
-        sleep_seconds = 60
         had_error = False
-        for config in configs:
-            error_sleep_seconds = max(error_sleep_seconds, config.error_sleep_seconds)
-            sleep_seconds = max(sleep_seconds, config.sleep_seconds)
-            try:
-                html_path, csv_path, state_file, processed, state = run_once(paper_args(config))
-                now = utc_text()
-                update_report_status(
-                    config.preset,
-                    cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
-                    last_check_at=now,
-                    last_success_at=now,
-                    last_error="",
-                    latest_report=str(html_path),
-                    latest_csv=str(csv_path),
-                    state_file=str(state_file),
-                    symbol=state.symbol,
-                    interval=state.interval,
-                    preset=state.preset,
-                    last_action=state.last_action,
-                    processed_last_cycle=processed,
-                    equity=last_equity(state),
-                    trades=len(state.trades),
-                    open_position=state.position_qty > 0,
-                )
-            except Exception as error:
-                had_error = True
-                now = utc_text()
-                update_report_status(
-                    config.preset,
-                    cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
-                    last_check_at=now,
-                    last_error_at=now,
-                    last_error=f"{type(error).__name__}: {error}",
-                    preset=config.preset,
-                )
-                traceback.print_exc()
+        update_report_status(
+            config.preset,
+            last_check_at=utc_text(),
+            last_action="CHECKING",
+            preset=config.preset,
+            equity=snapshot_status()["reports"].get(config.preset, {}).get("equity", config.initial_cash),
+        )
+        try:
+            html_path, csv_path, state_file, processed, state = run_once(paper_args(config))
+            now = utc_text()
+            update_report_status(
+                config.preset,
+                cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
+                last_check_at=now,
+                last_success_at=now,
+                last_error="",
+                latest_report=str(html_path),
+                latest_csv=str(csv_path),
+                state_file=str(state_file),
+                symbol=state.symbol,
+                interval=state.interval,
+                preset=state.preset,
+                last_action=state.last_action,
+                processed_last_cycle=processed,
+                equity=last_equity(state),
+                trades=len(state.trades),
+                open_position=state.position_qty > 0,
+            )
+        except Exception as error:
+            had_error = True
+            now = utc_text()
+            update_report_status(
+                config.preset,
+                cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
+                last_check_at=now,
+                last_error_at=now,
+                last_error=f"{type(error).__name__}: {error}",
+                preset=config.preset,
+            )
+            traceback.print_exc()
 
         if had_error:
-            STOP_EVENT.wait(max(10, error_sleep_seconds))
+            STOP_EVENT.wait(max(10, config.error_sleep_seconds))
         else:
-            STOP_EVENT.wait(max(30, sleep_seconds))
+            STOP_EVENT.wait(max(30, config.sleep_seconds))
 
 
 def report_path_from_status(preset: str | None = None) -> Path | None:
@@ -402,8 +404,16 @@ def main() -> None:
         equity=sum(config.initial_cash for config in configs),
     )
 
-    worker = threading.Thread(target=paper_loop, args=(configs,), daemon=True)
-    worker.start()
+    for config in configs:
+        update_report_status(
+            config.preset,
+            last_action="START",
+            preset=config.preset,
+            equity=config.initial_cash,
+            trades=0,
+        )
+        worker = threading.Thread(target=paper_loop, args=(config,), daemon=True)
+        worker.start()
 
     port = int(os.getenv("PORT", "10000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), RenderRequestHandler)
