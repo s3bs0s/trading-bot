@@ -11,7 +11,7 @@ import argparse
 import csv
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from html import escape
 from pathlib import Path
 from time import sleep
@@ -33,6 +33,7 @@ PAPER_PRESETS = [
     "stable-sol-4h",
     "experimental-eth-1m",
 ]
+DISPLAY_TIMEZONE_LABEL = "Colombia"
 
 
 @dataclass
@@ -80,6 +81,19 @@ class PaperPreset:
 
 def utc_now_text() -> str:
     return datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def display_time_text(value: str) -> str:
+    if not value:
+        return "pendiente"
+    try:
+        normalized = value.replace(" UTC", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return (parsed.astimezone(UTC) - timedelta(hours=5)).strftime("%Y-%m-%d %I:%M:%S %p Colombia")
+    except ValueError:
+        return value
 
 
 def build_preset(name: str) -> PaperPreset:
@@ -665,6 +679,7 @@ def write_paper_report(
     price_chart = render_market_price_chart(market_candles, state)
     equity_chart = render_chart(state.equity_curve, "equity", "#16805a", "Capital ficticio paper trading")
     context_candles = min(len(market_candles), 120)
+    updated_display = display_time_text(state.updated_at)
 
     open_position_section = ""
     if state.position_qty > 0:
@@ -740,7 +755,7 @@ def write_paper_report(
       <span class="pill">Modo: paper trading</span>
       <span class="pill">Preset: {escape(state.preset)}</span>
       <span class="pill">Temporalidad: {escape(state.interval)}</span>
-      <span class="pill">Ultima revision bot: {escape(state.updated_at)}</span>
+      <span class="pill">Ultima revision bot: {escape(updated_display)}</span>
       <span class="pill">Ultima vela cerrada: {escape(format_timestamp(latest_candle))}</span>
       <span class="pill">Velas contexto: {context_candles}</span>
       <span class="pill">Velas procesadas ahora: {processed_count}</span>
@@ -803,7 +818,7 @@ def write_paper_report(
     <section class="section">
       <h2>Archivos</h2>
       <p class="muted">Estado local: {escape(str(state_file.resolve()))}</p>
-      <p class="muted">Ultima revision del bot: {escape(state.updated_at)}</p>
+      <p class="muted">Ultima revision del bot: {escape(updated_display)}</p>
     </section>
   </main>
   <script>

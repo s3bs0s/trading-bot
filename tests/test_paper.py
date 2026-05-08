@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from src.data import Candle
-from src.paper import PaperPreset, PaperState, build_preset, process_candles, write_paper_report
+from src.paper import PaperPreset, PaperState, build_preset, display_time_text, process_candles, write_paper_report
 from src.risk import RiskConfig
 from src.strategy import BUY, HOLD, SELL
 
@@ -70,6 +70,11 @@ def make_state() -> PaperState:
 
 
 class PaperTradingTest(unittest.TestCase):
+    def test_display_time_text_shows_colombia_time(self):
+        text = display_time_text("2026-05-08 14:00:00 UTC")
+
+        self.assertIn("2026-05-08 09:00:00 AM Colombia", text)
+
     def test_experimental_one_minute_preset_uses_60_second_candles(self):
         preset = build_preset("experimental-eth-1m")
 

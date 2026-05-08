@@ -3,10 +3,13 @@ import unittest
 from unittest.mock import patch
 
 from src.paper_service import PaperServiceConfig
-from src.render_app import apply_env_overrides, parse_preset_names
+from src.render_app import apply_env_overrides, local_time_text, parse_preset_names
 
 
 class RenderAppTest(unittest.TestCase):
+    def test_local_time_text_shows_colombia_time(self):
+        self.assertEqual(local_time_text("2026-05-08 14:00:00 UTC"), "2026-05-08 09:00:00 AM Colombia")
+
     def test_apply_env_overrides_updates_public_paper_settings(self):
         config = PaperServiceConfig()
         env = {

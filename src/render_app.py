@@ -22,6 +22,7 @@ from time import sleep
 from urllib.parse import unquote, urlparse
 
 from src.paper import PAPER_PRESETS, run_once
+from src.paper import display_time_text
 from src.paper_service import PaperServiceConfig, last_equity, load_config
 
 
@@ -83,6 +84,10 @@ STOP_EVENT = threading.Event()
 
 def utc_text() -> str:
     return datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def local_time_text(value: object) -> str:
+    return display_time_text(str(value or ""))
 
 
 def apply_env_overrides(config: PaperServiceConfig, include_preset: bool = True) -> PaperServiceConfig:
@@ -186,11 +191,14 @@ def paper_loop(config: PaperServiceConfig) -> None:
         try:
             html_path, csv_path, state_file, processed, state = run_once(paper_args(config))
             now = utc_text()
+            now_local = local_time_text(now)
             update_report_status(
                 config.preset,
                 cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
                 last_check_at=now,
+                last_check_local=now_local,
                 last_success_at=now,
+                last_success_local=now_local,
                 last_error="",
                 latest_report=str(html_path),
                 latest_csv=str(csv_path),
@@ -207,11 +215,14 @@ def paper_loop(config: PaperServiceConfig) -> None:
         except Exception as error:
             had_error = True
             now = utc_text()
+            now_local = local_time_text(now)
             update_report_status(
                 config.preset,
                 cycles=int(snapshot_status()["reports"].get(config.preset, {}).get("cycles", 0)) + 1,
                 last_check_at=now,
+                last_check_local=now_local,
                 last_error_at=now,
+                last_error_local=now_local,
                 last_error=f"{type(error).__name__}: {error}",
                 preset=config.preset,
             )
@@ -317,7 +328,7 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     <p>{escape(details["summary"])}</p>
     <p class="risk">{escape(details["risk"])}</p>
     <dl>
-      <div><dt>Ultima revision</dt><dd>{escape(str(report.get("last_success_at") or "pendiente"))}</dd></div>
+      <div><dt>Ultima revision</dt><dd>{escape(str(report.get("last_success_local") or local_time_text(report.get("last_success_at"))))}</dd></div>
       <div><dt>Accion</dt><dd>{escape(str(report.get("last_action") or "START"))}</dd></div>
       <div><dt>Trades</dt><dd>{escape(str(report.get("trades") or 0))}</dd></div>
       <div><dt>Capital</dt><dd>{escape(f'{float(report.get("equity") or 0):,.2f} USDT')}</dd></div>
@@ -364,7 +375,7 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     </div>
     <div class="note">
       El reporte base cuida mas el ruido. El reporte activo busca mas oportunidades. Comparalos por varios dias antes de sacar conclusiones.
-      Ultimo chequeo general: {escape(str(status.get("last_check_at") or "pendiente"))}.
+      Ultimo chequeo general: {escape(local_time_text(status.get("last_check_at")))}.
     </div>
   </main>
 </body>
