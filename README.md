@@ -296,20 +296,6 @@ http://IP_DEL_SERVIDOR:8080/paper/paper_aggressive-eth-2h_ETHUSDT_2h.html
 
 Mas detalle en `DEPLOY.md`.
 
-## Online sin VPS
-
-Tambien incluye GitHub Actions + GitHub Pages:
-
-- Ejecuta el paper bot cada 5 minutos.
-- Guarda el estado ficticio en la rama `paper-live`.
-- Publica el reporte como pagina web.
-
-URL esperada despues de activar Pages:
-
-```text
-https://s3bs0s.github.io/trading-bot/
-```
-
 ## Render
 
 Para usar Render como servicio web:
