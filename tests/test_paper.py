@@ -84,6 +84,13 @@ class PaperTradingTest(unittest.TestCase):
         self.assertEqual(preset.interval, "1h")
         self.assertGreaterEqual(preset.lookback_candles, 240)
 
+    def test_aggressive_thirty_minute_preset_uses_fast_eth_candles(self):
+        preset = build_preset("aggressive-eth-30m")
+
+        self.assertEqual(preset.symbol, "ETHUSDT")
+        self.assertEqual(preset.interval, "30m")
+        self.assertGreaterEqual(preset.lookback_candles, 480)
+
     def test_first_live_run_processes_only_latest_closed_candle(self):
         candles = make_candles([100.0, 101.0, 102.0])
         state = make_state()

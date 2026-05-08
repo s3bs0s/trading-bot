@@ -25,7 +25,7 @@ from src.paper import PAPER_PRESETS, run_once
 from src.paper_service import PaperServiceConfig, last_equity, load_config
 
 
-DEFAULT_RENDER_PRESETS = ("aggressive-eth-2h", "active-eth-1h")
+DEFAULT_RENDER_PRESETS = ("aggressive-eth-2h", "active-eth-1h", "aggressive-eth-30m", "stable-sol-4h")
 
 PRESET_DESCRIPTIONS = {
     "aggressive-eth-2h": {
@@ -37,6 +37,11 @@ PRESET_DESCRIPTIONS = {
         "title": "Activa ETH 1h",
         "summary": "Experimento mas activo. Busca rupturas en ETH con velas de 1 hora, stop loss, take profit y trailing stop.",
         "risk": "Mas oportunidades, pero tambien mas falsas entradas y mas comisiones simuladas.",
+    },
+    "aggressive-eth-30m": {
+        "title": "Agresiva ETH 30m",
+        "summary": "Experimento rapido. Busca rupturas en ETH con velas de 30 minutos para detectar oportunidades mas frecuentes.",
+        "risk": "Mas agresiva que 1h; puede reaccionar antes, pero tambien equivocarse mas.",
     },
     "stable-sol-4h": {
         "title": "Estable SOL 4h",

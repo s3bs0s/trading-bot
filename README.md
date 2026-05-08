@@ -309,15 +309,17 @@ Para usar Render como servicio web:
 Variables opcionales:
 
 ```text
-PAPER_PRESETS=aggressive-eth-2h,active-eth-1h
+PAPER_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,stable-sol-4h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
 ```
 
-La URL de Render mostrara un menu con dos reportes:
+La URL de Render mostrara un menu con reportes separados:
 
 - `aggressive-eth-2h`: base actual, menos activa, usa velas de 2 horas.
 - `active-eth-1h`: experimento mas activo, usa velas de 1 hora.
+- `aggressive-eth-30m`: experimento rapido, busca mas oportunidades con velas de 30 minutos.
+- `stable-sol-4h`: comparacion estable en SOL, mas lenta pero util para medir consistencia.
 
 ```text
 https://TU-SERVICIO.onrender.com/

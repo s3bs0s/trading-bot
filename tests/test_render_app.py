@@ -23,7 +23,10 @@ class RenderAppTest(unittest.TestCase):
         self.assertEqual(updated.sleep_seconds, 120)
 
     def test_parse_preset_names_defaults_to_base_and_active_reports(self):
-        self.assertEqual(parse_preset_names(None), ["aggressive-eth-2h", "active-eth-1h"])
+        self.assertEqual(
+            parse_preset_names(None),
+            ["aggressive-eth-2h", "active-eth-1h", "aggressive-eth-30m", "stable-sol-4h"],
+        )
 
     def test_parse_preset_names_accepts_comma_separated_list(self):
         names = parse_preset_names("stable-sol-4h, experimental-eth-1m")
