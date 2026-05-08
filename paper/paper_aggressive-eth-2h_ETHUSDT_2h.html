@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <meta http-equiv="cache-control" content="no-cache">
+  <meta http-equiv="expires" content="0">
+  <title>Paper trading ETHUSDT</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #61708a;
+      --line: #d9e1ec;
+      --green: #16805a;
+      --red: #c2413d;
+      --amber: #b26b00;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: Segoe UI, Arial, sans-serif; line-height: 1.45; }
+    header { background: #101827; color: white; padding: 28px clamp(18px, 4vw, 46px); }
+    header h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 42px); }
+    header p { margin: 0; color: #cbd5e1; max-width: 920px; }
+    main { width: min(1180px, calc(100% - 32px)); margin: 24px auto 48px; }
+    .status-line { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: var(--muted); background: #fbfdff; font-size: 13px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .metric, .section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+    .section { margin-top: 16px; }
+    .metric span { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .metric strong { display: block; font-size: 22px; }
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .warning { border-left: 4px solid var(--amber); background: #fff8ea; color: #5b3a00; }
+    svg { display: block; width: 100%; height: auto; }
+    .chart-bg { fill: #fbfdff; }
+    .grid-line { stroke: var(--line); stroke-width: 1.2; }
+    .axis-label { fill: var(--muted); font-size: 13px; }
+    .chart-marker-buy { fill: var(--green); stroke: white; stroke-width: 2; }
+    .chart-marker-sell { fill: var(--red); stroke: white; stroke-width: 2; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 11px 10px; text-align: left; vertical-align: top; font-size: 14px; }
+    th { color: var(--muted); font-size: 12px; text-transform: uppercase; background: #fbfdff; }
+    a { color: #2563eb; font-weight: 600; text-decoration: none; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Paper trading ETHUSDT</h1>
+    <p>SIMULACION EN VIVO: usa precios publicos, dinero ficticio y no envia ordenes reales.</p>
+  </header>
+  <main>
+    <div class="status-line">
+      <span class="pill">Modo: paper trading</span>
+      <span class="pill">Preset: aggressive-eth-2h</span>
+      <span class="pill">Temporalidad: 2h</span>
+      <span class="pill">Ultima revision bot: 2026-05-08 04:26:33 UTC</span>
+      <span class="pill">Ultima vela cerrada: 2026-05-08 02:00</span>
+      <span class="pill">Velas contexto: 120</span>
+      <span class="pill">Velas procesadas ahora: 2</span>
+      <span class="pill">Auto-refresh pagina: <span id="refresh-countdown">30</span>s</span>
+      <span class="pill">Hora navegador: <span id="browser-clock">cargando...</span></span>
+      <span class="pill">Riesgo: Normal</span>
+    </div>
+
+    <section class="summary-grid">
+      <div class="metric"><span>Capital ficticio inicial</span><strong>1,000.00 USDT</strong></div>
+      <div class="metric"><span>Capital ficticio actual</span><strong>1,000.00 USDT</strong></div>
+      <div class="metric"><span>Resultado paper</span><strong class="positive">0.00%</strong></div>
+      <div class="metric"><span>Precio actual usado</span><strong>2,280.31</strong></div>
+      <div class="metric"><span>Max drawdown</span><strong class="negative">-0.00%</strong></div>
+      <div class="metric"><span>Trades cerrados</span><strong>0</strong></div>
+      <div class="metric"><span>Win rate</span><strong>0.00%</strong></div>
+      <div class="metric"><span>Ultima accion</span><strong>HOLD</strong></div>
+      <div class="metric"><span>Posicion abierta</span><strong>NO</strong></div>
+    </section>
+
+    <section class="section warning">
+      Este tablero no usa tu cuenta, no usa API keys y no toca dinero real. Todo es ficticio.
+    </section>
+
+    <section class="section">
+      <h2>Precio reciente del mercado</h2>
+      <p class="muted">Muestra las ultimas 120 velas cerradas. Los puntos de compra/venta apareceran encima cuando existan.</p>
+      
+    <svg viewBox="0 0 980 300" role="img" aria-label="Precio reciente del mercado">
+      <rect class="chart-bg" x="0" y="0" width="980" height="300" rx="8"></rect>
+      <line class="grid-line" x1="44" y1="44" x2="44" y2="256"></line>
+      <line class="grid-line" x1="44" y1="256" x2="936" y2="256"></line>
+      <text class="axis-label" x="44" y="24">Max 2,412.21</text>
+      <text class="axis-label" x="44" y="286">Min 2,233.52</text>
+      <text class="axis-label" x="44" y="298">2026-04-28 04:00</text>
+      <text class="axis-label" x="818" y="298">2026-05-08 02:00</text>
+      <polyline fill="none" stroke="#2563eb" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="44.00,190.45 51.50,191.57 58.99,203.13 66.49,206.63 73.98,205.46 81.48,202.96 88.97,190.65 96.47,174.30 103.97,190.04 111.46,191.23 118.96,186.03 126.45,163.33 133.95,143.68 141.45,149.20 148.94,127.75 156.44,138.55 163.93,172.04 171.43,208.88 178.92,198.71 186.42,256.00 193.92,230.73 201.41,230.77 208.91,214.62 216.40,228.61 223.90,244.84 231.39,223.77 238.89,220.61 246.39,225.78 253.88,222.45 261.38,216.48 268.87,226.09 276.37,222.58 283.87,228.11 291.36,225.45 298.86,215.21 306.35,194.35 313.85,195.05 321.34,200.27 328.84,199.80 336.34,195.83 343.83,156.55 351.33,170.40 358.82,162.74 366.32,169.43 373.82,188.41 381.31,182.39 388.81,178.01 396.30,169.93 403.80,176.33 411.29,172.33 418.79,170.10 426.29,174.35 433.78,166.97 441.28,165.67 448.77,170.02 456.27,163.50 463.76,145.15 471.26,158.23 478.76,172.06 486.25,175.31 493.75,173.49 501.24,165.82 508.74,157.44 516.24,152.84 523.73,148.90 531.23,143.79 538.72,140.62 546.22,134.72 553.71,148.19 561.21,149.89 568.71,118.15 576.20,75.88 583.70,86.95 591.19,94.40 598.69,95.67 606.18,132.59 613.68,133.34 621.18,117.26 628.67,89.01 636.17,111.17 643.66,104.42 651.16,121.62 658.66,103.58 666.15,78.83 673.65,83.20 681.14,82.31 688.64,93.00 696.13,85.95 703.63,76.28 711.13,79.98 718.62,101.28 726.12,94.02 733.61,86.01 741.11,104.10 748.61,92.89 756.10,88.16 763.60,99.67 771.09,93.40 778.59,44.00 786.08,46.31 793.58,94.09 801.08,107.35 808.57,118.01 816.07,118.80 823.56,113.58 831.06,116.51 838.55,144.20 846.05,148.96 853.55,141.55 861.04,125.17 868.54,142.95 876.03,140.62 883.53,166.71 891.03,184.47 898.52,178.52 906.02,184.41 913.51,187.54 921.01,187.92 928.50,195.30 936.00,200.49"></polyline>
+      
+    </svg>
+    
+    </section>
+
+    <section class="section">
+      <h2>Capital ficticio</h2>
+      
+    <svg viewBox="0 0 980 260" role="img" aria-label="Capital ficticio paper trading">
+      <rect class="chart-bg" x="0" y="0" width="980" height="260" rx="8"></rect>
+      <line class="grid-line" x1="44" y1="44" x2="44" y2="216"></line>
+      <line class="grid-line" x1="44" y1="216" x2="936" y2="216"></line>
+      <text class="axis-label" x="44" y="24">Max 1,000.00</text>
+      <text class="axis-label" x="44" y="246">Min 1,000.00</text>
+      <polyline fill="none" stroke="#16805a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="44.00,130.00 192.67,130.00 341.33,130.00 490.00,130.00 638.67,130.00 787.33,130.00 936.00,130.00"></polyline>
+    </svg>
+    
+    </section>
+
+    
+
+    <section class="section">
+      <h2>Operaciones ficticias</h2>
+      <p><a href="paper_aggressive-eth-2h_ETHUSDT_2h.csv">Abrir CSV</a></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Compra</th>
+              <th>Precio compra</th>
+              <th>Motivo compra</th>
+              <th>Venta</th>
+              <th>Precio venta</th>
+              <th>Motivo venta</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody><tr><td colspan="8">Aun no hay operaciones cerradas.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Archivos</h2>
+      <p class="muted">Estado local: /home/runner/work/trading-bot/trading-bot/paper_state/paper_aggressive-eth-2h_ETHUSDT_2h.json</p>
+      <p class="muted">Ultima revision del bot: 2026-05-08 04:26:33 UTC</p>
+    </section>
+  </main>
+  <script>
+    const refreshSeconds = 30;
+    let remainingSeconds = refreshSeconds;
+    const countdown = document.getElementById("refresh-countdown");
+    const browserClock = document.getElementById("browser-clock");
+
+    function renderBrowserStatus() {
+      if (browserClock) {
+        browserClock.textContent = new Date().toLocaleTimeString();
+      }
+      if (countdown) {
+        countdown.textContent = String(remainingSeconds);
+      }
+    }
+
+    renderBrowserStatus();
+    setInterval(() => {
+      remainingSeconds -= 1;
+      if (remainingSeconds <= 0) {
+        window.location.reload();
+        return;
+      }
+      renderBrowserStatus();
+    }, 1000);
+  </script>
+</body>
+</html>

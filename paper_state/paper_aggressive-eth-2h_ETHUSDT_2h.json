@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "mode": "paper",
+  "symbol": "ETHUSDT",
+  "interval": "2h",
+  "preset": "aggressive-eth-2h",
+  "strategy_label": "aggr_breakout_2h_f6_t30_w4_buf0.000_sl0.025_tp0.025_tr0.004_act0.005_pos0.60_vol1.0",
+  "initial_cash": 1000.0,
+  "fee_rate": 0.001,
+  "cash": 1000.0,
+  "position_qty": 0.0,
+  "entry_price": 0.0,
+  "entry_cost": 0.0,
+  "entry_time": "",
+  "entry_reason": "",
+  "highest_price_since_entry": 0.0,
+  "last_processed_candle": "2026-05-08 02:00",
+  "peak_equity": 1000.0,
+  "paused": false,
+  "pause_reason": "",
+  "consecutive_losses": 0,
+  "cooldown_bars_remaining": 0,
+  "loss_streak_cooldown_remaining": 0,
+  "last_action": "HOLD",
+  "risk_events": [],
+  "trades": [],
+  "equity_curve": [
+    {
+      "date": "2026-05-07 14:00",
+      "close": 2293.81,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-07 16:00",
+      "close": 2298.83,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-07 18:00",
+      "close": 2293.86,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-07 20:00",
+      "close": 2291.22,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-07 22:00",
+      "close": 2290.9,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-08 00:00",
+      "close": 2284.68,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    },
+    {
+      "date": "2026-05-08 02:00",
+      "close": 2280.31,
+      "equity": 1000.0,
+      "cash": 1000.0,
+      "position_value": 0.0,
+      "drawdown_pct": 0.0
+    }
+  ],
+  "created_at": "2026-05-07 17:35:36 UTC",
+  "updated_at": "2026-05-08 04:26:33 UTC"
+}
