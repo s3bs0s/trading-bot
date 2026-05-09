@@ -27,7 +27,13 @@ from src.paper import display_time_text
 from src.paper_service import PaperServiceConfig, last_equity, load_config
 
 
-DEFAULT_RENDER_PRESETS = ("aggressive-eth-2h", "active-eth-1h", "aggressive-eth-30m", "stable-sol-4h")
+DEFAULT_RENDER_PRESETS = (
+    "aggressive-eth-2h",
+    "active-eth-1h",
+    "aggressive-eth-30m",
+    "growth-eth-4h",
+    "stable-sol-4h",
+)
 
 PRESET_DESCRIPTIONS = {
     "aggressive-eth-2h": {
@@ -44,6 +50,11 @@ PRESET_DESCRIPTIONS = {
         "title": "Agresiva ETH 30m",
         "summary": "Experimento rapido. Busca rupturas en ETH con velas de 30 minutos para detectar oportunidades mas frecuentes.",
         "risk": "Mas agresiva que 1h; puede reaccionar antes, pero tambien equivocarse mas.",
+    },
+    "growth-eth-4h": {
+        "title": "Crecimiento ETH 4h",
+        "summary": "Experimento 4h orientado a mas crecimiento. Busca pullbacks en tendencia de ETH y usa una posicion ficticia mas grande por operacion.",
+        "risk": "Puede ganar mas que candidatos conservadores, pero una senal mala tambien pesa mas.",
     },
     "stable-sol-4h": {
         "title": "Estable SOL 4h",

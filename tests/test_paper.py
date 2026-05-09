@@ -116,6 +116,14 @@ class PaperTradingTest(unittest.TestCase):
         self.assertEqual(preset.interval, "30m")
         self.assertGreaterEqual(preset.lookback_candles, 480)
 
+    def test_growth_four_hour_preset_uses_larger_eth_position(self):
+        preset = build_preset("growth-eth-4h")
+
+        self.assertEqual(preset.symbol, "ETHUSDT")
+        self.assertEqual(preset.interval, "4h")
+        self.assertAlmostEqual(preset.risk_config.position_size_pct, 0.60)
+        self.assertGreaterEqual(preset.lookback_candles, 500)
+
     def test_first_live_run_processes_only_latest_closed_candle(self):
         candles = make_candles([100.0, 101.0, 102.0])
         state = make_state()

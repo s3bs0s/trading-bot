@@ -31,6 +31,7 @@ PAPER_PRESETS = [
     "aggressive-eth-2h",
     "active-eth-1h",
     "aggressive-eth-30m",
+    "growth-eth-4h",
     "stable-sol-4h",
     "experimental-eth-1m",
 ]
@@ -208,6 +209,34 @@ def build_preset(name: str) -> PaperPreset:
             strategy=build_aggressive_strategy(candidate),
             risk_config=build_aggressive_risk(candidate),
             lookback_candles=720,
+        )
+
+    if name == "growth-eth-4h":
+        candidate = AggressiveCandidate(
+            symbol="ETHUSDT",
+            interval="4h",
+            strategy_name="pullback",
+            fast_window=15,
+            trend_window=50,
+            signal_window=4,
+            signal_pct=0.005,
+            stop_loss_pct=0.025,
+            take_profit_pct=0.04,
+            trailing_stop_pct=0.004,
+            trailing_activation_pct=0.005,
+            position_size_pct=0.60,
+            rsi_min=45.0,
+            rsi_max=82.0,
+            volume_ratio=1.0,
+        )
+        return PaperPreset(
+            name=name,
+            symbol=candidate.symbol,
+            interval=candidate.interval,
+            strategy_label=f"growth_4h_{candidate.label}",
+            strategy=build_aggressive_strategy(candidate),
+            risk_config=build_aggressive_risk(candidate),
+            lookback_candles=540,
         )
 
     if name == "stable-sol-4h":
