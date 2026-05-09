@@ -21,6 +21,7 @@ from pathlib import Path
 from time import sleep
 from urllib.parse import unquote, urlparse
 
+from src.env import load_local_env
 from src.paper import PAPER_PRESETS, run_once
 from src.paper import display_time_text
 from src.paper_service import PaperServiceConfig, last_equity, load_config
@@ -413,6 +414,7 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    load_local_env()
     configs = load_render_configs()
     update_status(
         started_at=utc_text(),

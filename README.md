@@ -327,6 +327,17 @@ https://TU-SERVICIO.onrender.com/
 
 La ruta `/health` responde JSON para monitoreo y para mantener despierto el servicio con un monitor externo. Sigue siendo paper trading: no usa API keys y no envia ordenes reales. Cada reporte guarda su propio estado ficticio y sus operaciones por separado.
 
+## Variables locales
+
+Para correr local con variables de entorno:
+
+```powershell
+copy .env.example .env
+py -m src.render_app
+```
+
+El archivo `.env` queda ignorado por git. Ahi van credenciales locales como Supabase y configuracion de paper trading. No subas `.env` al repo.
+
 ## Proximos pasos
 
 1. Ejecutar el primer backtest y leer los resultados.
