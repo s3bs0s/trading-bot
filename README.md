@@ -356,6 +356,17 @@ DATABASE_URL=postgresql://USUARIO:PASSWORD@HOST:PUERTO/postgres?sslmode=require
 
 Con eso el bot crea automaticamente la tabla `paper_states` y guarda ahi el estado de cada reporte. El archivo local `paper_state/*.json` queda como respaldo, pero la base de datos es la fuente que sobrevive a reinicios.
 
+Tablas creadas automaticamente:
+
+```text
+paper_states         checkpoint actual por preset para restaurar el bot
+paper_runs           cada revision del bot con accion, capital y velas procesadas
+paper_trades         operaciones cerradas con entrada, salida, motivo y resultado
+paper_equity_points  historial de capital por vela para analizar drawdown y curva
+```
+
+`paper_states` existe para continuidad. Las otras tablas existen para trazabilidad y analisis.
+
 ## Proximos pasos
 
 1. Ejecutar el primer backtest y leer los resultados.

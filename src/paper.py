@@ -274,13 +274,18 @@ def load_state(path: Path, preset: PaperPreset, initial_cash: float, fee_rate: f
     )
 
 
-def save_state(path: Path, state: PaperState, store: object | None = None) -> None:
+def save_state(
+    path: Path,
+    state: PaperState,
+    store: object | None = None,
+    run_context: dict[str, object] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     state.updated_at = utc_now_text()
     payload = asdict(state)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     if store is not None:
-        store.save(payload)
+        store.save(payload, run_context=run_context)
 
 
 def closed_public_candles(symbol: str, interval: str, limit: int) -> list[Candle]:
@@ -887,7 +892,16 @@ def run_once(args: argparse.Namespace) -> tuple[Path, Path, Path, int, PaperStat
     candles = closed_public_candles(preset.symbol, preset.interval, preset.lookback_candles)
     processed = process_candles(state, preset=preset, candles=candles, bootstrap_history=args.bootstrap_history)
     latest_candle = candles[-1]
-    save_state(state_file, state, store=store)
+    save_state(
+        state_file,
+        state,
+        store=store,
+        run_context={
+            "processed_count": processed,
+            "latest_candle": format_timestamp(latest_candle),
+            "current_price": latest_candle.close,
+        },
+    )
     html_path, csv_path = write_paper_report(
         state,
         output_dir=Path(args.report_dir),

@@ -48,7 +48,7 @@ class MemoryStore:
     def load(self, preset: str):
         return self.states.get(preset)
 
-    def save(self, state: dict):
+    def save(self, state: dict, run_context=None):
         self.states[state["preset"]] = dict(state)
 
 
