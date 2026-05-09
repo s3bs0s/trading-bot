@@ -4,7 +4,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from src.data import Candle
-from src.paper import PaperPreset, PaperState, build_preset, display_time_text, process_candles, write_paper_report
+from src.paper import (
+    PaperPreset,
+    PaperState,
+    build_preset,
+    display_time_text,
+    load_state,
+    process_candles,
+    save_state,
+    write_paper_report,
+)
 from src.risk import RiskConfig
 from src.strategy import BUY, HOLD, SELL
 
@@ -30,6 +39,17 @@ class ScheduledStrategy:
 
     def signal_at(self, candles: list[Candle], index: int) -> tuple[str, str]:
         return self.signals.get(index, (HOLD, "scheduled hold"))
+
+
+class MemoryStore:
+    def __init__(self):
+        self.states = {}
+
+    def load(self, preset: str):
+        return self.states.get(preset)
+
+    def save(self, state: dict):
+        self.states[state["preset"]] = dict(state)
 
 
 def make_preset(strategy: ScheduledStrategy) -> PaperPreset:
@@ -146,6 +166,22 @@ class PaperTradingTest(unittest.TestCase):
         self.assertIn("Precio reciente del mercado", html)
         self.assertIn("Velas contexto: 4", html)
         self.assertIn("103.00", html)
+
+    def test_state_store_can_restore_state_when_local_file_is_missing(self):
+        preset = make_preset(ScheduledStrategy({}))
+        store = MemoryStore()
+        state = make_state()
+        state.cash = 950.0
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_path = Path(temp_dir) / "missing.json"
+            save_state(state_path, state, store=store)
+            state_path.unlink()
+
+            restored = load_state(state_path, preset=preset, initial_cash=1000.0, fee_rate=0.0, store=store)
+
+        self.assertEqual(restored.cash, 950.0)
+        self.assertEqual(restored.preset, "test-paper")
 
 
 if __name__ == "__main__":

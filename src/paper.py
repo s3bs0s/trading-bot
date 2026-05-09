@@ -23,6 +23,7 @@ from src.backtest import EquityPoint, Trade, format_timestamp
 from src.data import Candle, fetch_binance_klines
 from src.report import money, pct, safe_name
 from src.risk import RiskConfig, RiskManager, RiskState
+from src.state_store import state_store_from_env
 from src.strategy import BUY, SELL, PullbackInUptrend
 
 
@@ -246,7 +247,12 @@ def state_path(state_dir: Path, preset: PaperPreset) -> Path:
     return state_dir / f"paper_{safe_name(preset.name)}_{safe_name(preset.symbol)}_{safe_name(preset.interval)}.json"
 
 
-def load_state(path: Path, preset: PaperPreset, initial_cash: float, fee_rate: float) -> PaperState:
+def load_state(path: Path, preset: PaperPreset, initial_cash: float, fee_rate: float, store: object | None = None) -> PaperState:
+    if store is not None:
+        payload = store.load(preset.name)
+        if payload is not None:
+            return PaperState(**payload)
+
     if path.exists():
         payload = json.loads(path.read_text(encoding="utf-8"))
         return PaperState(**payload)
@@ -268,10 +274,13 @@ def load_state(path: Path, preset: PaperPreset, initial_cash: float, fee_rate: f
     )
 
 
-def save_state(path: Path, state: PaperState) -> None:
+def save_state(path: Path, state: PaperState, store: object | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     state.updated_at = utc_now_text()
-    path.write_text(json.dumps(asdict(state), indent=2), encoding="utf-8")
+    payload = asdict(state)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    if store is not None:
+        store.save(payload)
 
 
 def closed_public_candles(symbol: str, interval: str, limit: int) -> list[Candle]:
@@ -873,11 +882,12 @@ def run_once(args: argparse.Namespace) -> tuple[Path, Path, Path, int, PaperStat
     if args.reset and state_file.exists():
         state_file.unlink()
 
-    state = load_state(state_file, preset=preset, initial_cash=args.initial_cash, fee_rate=args.fee_rate)
+    store = state_store_from_env()
+    state = load_state(state_file, preset=preset, initial_cash=args.initial_cash, fee_rate=args.fee_rate, store=store)
     candles = closed_public_candles(preset.symbol, preset.interval, preset.lookback_candles)
     processed = process_candles(state, preset=preset, candles=candles, bootstrap_history=args.bootstrap_history)
     latest_candle = candles[-1]
-    save_state(state_file, state)
+    save_state(state_file, state, store=store)
     html_path, csv_path = write_paper_report(
         state,
         output_dir=Path(args.report_dir),

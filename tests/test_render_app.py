@@ -1,9 +1,11 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from src.paper_service import PaperServiceConfig
-from src.render_app import apply_env_overrides, local_time_text, parse_preset_names
+from src.render_app import apply_env_overrides, local_time_text, parse_preset_names, state_backup_payload
 
 
 class RenderAppTest(unittest.TestCase):
@@ -35,6 +37,22 @@ class RenderAppTest(unittest.TestCase):
         names = parse_preset_names("stable-sol-4h, experimental-eth-1m")
 
         self.assertEqual(names, ["stable-sol-4h", "experimental-eth-1m"])
+
+    def test_state_backup_payload_includes_local_state_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_dir = Path(temp_dir) / "paper_state"
+            state_dir.mkdir()
+            (state_dir / "paper_test.json").write_text('{"preset":"test","cash":1000}', encoding="utf-8")
+
+            current_dir = os.getcwd()
+            os.chdir(temp_dir)
+            try:
+                payload = state_backup_payload()
+            finally:
+                os.chdir(current_dir)
+
+        self.assertIn("paper_test.json", payload["states"])
+        self.assertEqual(payload["states"]["paper_test.json"]["cash"], 1000)
 
 
 if __name__ == "__main__":

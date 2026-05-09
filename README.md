@@ -327,6 +327,16 @@ https://TU-SERVICIO.onrender.com/
 
 La ruta `/health` responde JSON para monitoreo y para mantener despierto el servicio con un monitor externo. Sigue siendo paper trading: no usa API keys y no envia ordenes reales. Cada reporte guarda su propio estado ficticio y sus operaciones por separado.
 
+Rutas utiles:
+
+```text
+/health   estado general para monitoreo
+/backup   descarga todos los estados paper actuales como JSON
+/state/NOMBRE.json   descarga un estado paper especifico
+```
+
+En Render Free el disco puede reiniciarse. Para no perder la billetera ficticia, configura una base de datos externa con `DATABASE_URL`.
+
 ## Variables locales
 
 Para correr local con variables de entorno:
@@ -337,6 +347,14 @@ py -m src.render_app
 ```
 
 El archivo `.env` queda ignorado por git. Ahi van credenciales locales como Supabase y configuracion de paper trading. No subas `.env` al repo.
+
+Si usas Supabase, pon en `.env` o en Render:
+
+```text
+DATABASE_URL=postgresql://USUARIO:PASSWORD@HOST:PUERTO/postgres?sslmode=require
+```
+
+Con eso el bot crea automaticamente la tabla `paper_states` y guarda ahi el estado de cada reporte. El archivo local `paper_state/*.json` queda como respaldo, pero la base de datos es la fuente que sobrevive a reinicios.
 
 ## Proximos pasos
 
