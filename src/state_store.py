@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from dataclasses import dataclass
 from typing import Any
 
 
 class StateStoreError(RuntimeError):
     """Raised when the configured persistent store cannot be used."""
+
+
+_SCHEMA_LOCK = threading.Lock()
 
 
 @dataclass
@@ -34,20 +38,24 @@ class PostgresStateStore:
         if self._schema_ready:
             return
 
-        with self._connect() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    create table if not exists paper_states (
-                        preset text primary key,
-                        symbol text not null,
-                        interval text not null,
-                        state jsonb not null,
-                        updated_at timestamptz not null default now()
+        with _SCHEMA_LOCK:
+            if self._schema_ready:
+                return
+
+            with self._connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        create table if not exists paper_states (
+                            preset text primary key,
+                            symbol text not null,
+                            interval text not null,
+                            state jsonb not null,
+                            updated_at timestamptz not null default now()
+                        )
+                        """
                     )
-                    """
-                )
-        self._schema_ready = True
+            self._schema_ready = True
 
     def load(self, preset: str) -> dict[str, Any] | None:
         self.ensure_schema()
