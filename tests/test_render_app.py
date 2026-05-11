@@ -5,7 +5,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from src.paper_service import PaperServiceConfig
-from src.render_app import apply_env_overrides, local_time_text, parse_preset_names, state_backup_payload
+from src.render_app import (
+    apply_env_overrides,
+    count_trades_closed_on,
+    dashboard_summary,
+    local_time_text,
+    parse_preset_names,
+    state_backup_payload,
+)
 
 
 class RenderAppTest(unittest.TestCase):
@@ -37,6 +44,52 @@ class RenderAppTest(unittest.TestCase):
         names = parse_preset_names("stable-sol-4h, experimental-eth-1m")
 
         self.assertEqual(names, ["stable-sol-4h", "experimental-eth-1m"])
+
+    def test_count_trades_closed_on_uses_colombia_day(self):
+        trades = [
+            {"exit_time": "2026-05-10 04:30"},
+            {"exit_time": "2026-05-10 05:30"},
+        ]
+
+        self.assertEqual(count_trades_closed_on(trades, "2026-05-09"), 1)
+        self.assertEqual(count_trades_closed_on(trades, "2026-05-10"), 1)
+
+    def test_dashboard_summary_finds_best_worst_and_totals(self):
+        status = {
+            "last_check_at": "2026-05-10 12:00:00 UTC",
+            "reports": {
+                "a": {
+                    "preset": "a",
+                    "initial_cash": 1000.0,
+                    "equity": 1010.0,
+                    "trades": 2,
+                    "trades_today": 1,
+                    "open_position": True,
+                    "last_action": "BUY - test",
+                    "last_success_at": "2026-05-10 12:00:00 UTC",
+                },
+                "b": {
+                    "preset": "b",
+                    "initial_cash": 1000.0,
+                    "equity": 990.0,
+                    "trades": 1,
+                    "trades_today": 0,
+                    "open_position": False,
+                    "last_action": "HOLD",
+                    "last_success_at": "2026-05-10 11:00:00 UTC",
+                },
+            },
+        }
+
+        summary = dashboard_summary(status)
+
+        self.assertEqual(summary["total_equity"], 2000.0)
+        self.assertEqual(summary["best_preset"], "a")
+        self.assertEqual(summary["worst_preset"], "b")
+        self.assertEqual(summary["trades_today"], 1)
+        self.assertEqual(summary["closed_trades"], 3)
+        self.assertEqual(summary["open_positions"], 1)
+        self.assertIn("BUY", summary["last_alert"])
 
     def test_state_backup_payload_includes_local_state_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:

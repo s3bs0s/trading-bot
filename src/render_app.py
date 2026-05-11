@@ -13,7 +13,7 @@ import threading
 import traceback
 from argparse import Namespace
 from dataclasses import asdict, dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from html import escape
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,6 +92,7 @@ class AppStatus:
 STATUS = AppStatus(started_at="")
 STATUS_LOCK = threading.Lock()
 STOP_EVENT = threading.Event()
+COLOMBIA_OFFSET = timedelta(hours=5)
 
 
 def utc_text() -> str:
@@ -100,6 +101,81 @@ def utc_text() -> str:
 
 def local_time_text(value: object) -> str:
     return display_time_text(str(value or ""))
+
+
+def parse_utc_datetime(value: object) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace(" UTC", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def colombia_date_text(value: object) -> str:
+    parsed = parse_utc_datetime(value)
+    if parsed is None:
+        return ""
+    return (parsed - COLOMBIA_OFFSET).date().isoformat()
+
+
+def today_colombia_text() -> str:
+    return (datetime.now(tz=UTC) - COLOMBIA_OFFSET).date().isoformat()
+
+
+def count_trades_closed_on(trades: list[dict[str, object]], date_text: str) -> int:
+    return sum(1 for trade in trades if colombia_date_text(trade.get("exit_time")) == date_text)
+
+
+def total_trade_pnl(trades: list[dict[str, object]]) -> float:
+    return sum(float(trade.get("pnl") or 0.0) for trade in trades)
+
+
+def report_return_pct(report: dict[str, object]) -> float:
+    initial_cash = float(report.get("initial_cash") or 0.0)
+    if initial_cash <= 0:
+        return 0.0
+    return (float(report.get("equity") or 0.0) - initial_cash) / initial_cash
+
+
+def dashboard_summary(status: dict[str, object]) -> dict[str, object]:
+    reports = [dict(report) for report in dict(status.get("reports", {})).values()]
+    active_reports = [report for report in reports if float(report.get("initial_cash") or 0.0) > 0]
+    total_initial = sum(float(report.get("initial_cash") or 0.0) for report in active_reports)
+    total_equity = sum(float(report.get("equity") or 0.0) for report in active_reports)
+    total_return = (total_equity - total_initial) / total_initial if total_initial else 0.0
+    best = max(active_reports, key=report_return_pct, default={})
+    worst = min(active_reports, key=report_return_pct, default={})
+
+    alerts: list[tuple[datetime, str]] = []
+    for report in active_reports:
+        last_error = str(report.get("last_error") or "")
+        last_action = str(report.get("last_action") or "")
+        when = parse_utc_datetime(report.get("last_success_at")) or datetime.min.replace(tzinfo=UTC)
+        preset = str(report.get("preset") or "?")
+        if last_error:
+            alerts.append((when, f"{preset}: error {last_error}"))
+        elif last_action.startswith(("BUY", "SELL")) or "blocked" in last_action or "cooldown" in last_action:
+            alerts.append((when, f"{preset}: {last_action}"))
+
+    last_alert = max(alerts, key=lambda item: item[0])[1] if alerts else "Sin alertas importantes"
+
+    return {
+        "total_initial": total_initial,
+        "total_equity": total_equity,
+        "total_return": total_return,
+        "best_preset": best.get("preset", "pendiente"),
+        "best_return": report_return_pct(best),
+        "worst_preset": worst.get("preset", "pendiente"),
+        "worst_return": report_return_pct(worst),
+        "trades_today": sum(int(report.get("trades_today") or 0) for report in active_reports),
+        "closed_trades": sum(int(report.get("trades") or 0) for report in active_reports),
+        "open_positions": sum(1 for report in active_reports if bool(report.get("open_position"))),
+        "last_alert": last_alert,
+    }
 
 
 def apply_env_overrides(config: PaperServiceConfig, include_preset: bool = True) -> PaperServiceConfig:
@@ -198,6 +274,7 @@ def paper_loop(config: PaperServiceConfig) -> None:
             last_check_at=utc_text(),
             last_action="CHECKING",
             preset=config.preset,
+            initial_cash=config.initial_cash,
             equity=snapshot_status()["reports"].get(config.preset, {}).get("equity", config.initial_cash),
         )
         try:
@@ -220,8 +297,11 @@ def paper_loop(config: PaperServiceConfig) -> None:
                 preset=state.preset,
                 last_action=state.last_action,
                 processed_last_cycle=processed,
+                initial_cash=state.initial_cash,
                 equity=last_equity(state),
                 trades=len(state.trades),
+                trades_today=count_trades_closed_on(state.trades, today_colombia_text()),
+                realized_pnl=total_trade_pnl(state.trades),
                 open_position=state.position_qty > 0,
             )
         except Exception as error:
@@ -346,6 +426,10 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     def send_home(self) -> None:
         status = snapshot_status()
         reports = status.get("reports", {})
+        summary = dashboard_summary(status)
+        total_class = "positive" if float(summary["total_return"]) >= 0 else "negative"
+        best_class = "positive" if float(summary["best_return"]) >= 0 else "negative"
+        worst_class = "positive" if float(summary["worst_return"]) >= 0 else "negative"
         cards = []
         for preset in parse_preset_names(os.getenv("PAPER_PRESETS")):
             report = reports.get(preset, {})
@@ -392,6 +476,12 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     main {{ max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }}
     h1 {{ margin: 0 0 8px; font-size: 44px; }}
     .grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }}
+    .summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }}
+    .metric {{ background: white; border: 1px solid #d7e0ef; border-radius: 8px; padding: 18px; }}
+    .metric span {{ display: block; color: #5b7194; font-size: 13px; margin-bottom: 6px; }}
+    .metric strong {{ display: block; font-size: 24px; }}
+    .metric.alert {{ grid-column: 1 / -1; }}
+    .metric.alert strong {{ font-size: 18px; line-height: 1.35; }}
     .card {{ background: white; border: 1px solid #d7e0ef; border-radius: 8px; padding: 22px; }}
     .card-top {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
     .card-top span {{ border: 1px solid #d7e0ef; border-radius: 999px; padding: 6px 10px; color: #496183; }}
@@ -401,6 +491,8 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     dl {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }}
     dt {{ color: #5b7194; font-size: 13px; }}
     dd {{ margin: 4px 0 0; font-weight: 700; }}
+    .positive {{ color: #16805a; }}
+    .negative {{ color: #c2413d; }}
     .button {{ display: inline-block; background: #0f766e; color: white; text-decoration: none; padding: 11px 14px; border-radius: 6px; font-weight: 700; }}
     .button.disabled {{ background: #8da0bc; pointer-events: none; }}
     .note {{ margin-top: 22px; background: #fff7e8; border-left: 4px solid #b7791f; padding: 16px 18px; border-radius: 6px; }}
@@ -412,6 +504,17 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     <p>Simulacion con dinero ficticio. No usa API keys, no toca Binance real y no envia ordenes reales.</p>
   </header>
   <main>
+    <section class="summary" aria-label="Resumen operativo">
+      <div class="metric"><span>Capital total ficticio</span><strong>{escape(f'{float(summary["total_equity"]):,.2f} USDT')}</strong></div>
+      <div class="metric"><span>Resultado total</span><strong class="{total_class}">{escape(f'{float(summary["total_return"]) * 100:.2f}%')}</strong></div>
+      <div class="metric"><span>Mejor estrategia</span><strong class="{best_class}">{escape(str(summary["best_preset"]))} {escape(f'{float(summary["best_return"]) * 100:.2f}%')}</strong></div>
+      <div class="metric"><span>Peor estrategia</span><strong class="{worst_class}">{escape(str(summary["worst_preset"]))} {escape(f'{float(summary["worst_return"]) * 100:.2f}%')}</strong></div>
+      <div class="metric"><span>Trades cerrados hoy</span><strong>{escape(str(summary["trades_today"]))}</strong></div>
+      <div class="metric"><span>Trades cerrados total</span><strong>{escape(str(summary["closed_trades"]))}</strong></div>
+      <div class="metric"><span>Posiciones abiertas</span><strong>{escape(str(summary["open_positions"]))}</strong></div>
+      <div class="metric"><span>Ultimo chequeo</span><strong>{escape(local_time_text(status.get("last_check_at")))}</strong></div>
+      <div class="metric alert"><span>Ultima alerta importante</span><strong>{escape(str(summary["last_alert"]))}</strong></div>
+    </section>
     <div class="grid">
       {''.join(cards)}
     </div>
@@ -487,8 +590,11 @@ def main() -> None:
             config.preset,
             last_action="START",
             preset=config.preset,
+            initial_cash=config.initial_cash,
             equity=config.initial_cash,
             trades=0,
+            trades_today=0,
+            realized_pnl=0.0,
         )
         worker = threading.Thread(target=paper_loop, args=(config,), daemon=True)
         worker.start()
