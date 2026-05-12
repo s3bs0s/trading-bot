@@ -309,7 +309,7 @@ Para usar Render como servicio web:
 Variables opcionales:
 
 ```text
-PAPER_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,growth-eth-4h,stable-sol-4h
+PAPER_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,growth-eth-4h,balanced-btc-4h,stable-sol-4h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
 ```
@@ -320,6 +320,7 @@ La URL de Render mostrara un menu con reportes separados:
 - `active-eth-1h`: experimento mas activo, usa velas de 1 hora.
 - `aggressive-eth-30m`: experimento rapido, busca mas oportunidades con velas de 30 minutos.
 - `growth-eth-4h`: experimento ETH 4h de crecimiento, usa pullbacks y posicion ficticia mas grande.
+- `balanced-btc-4h`: comparacion BTC 4h, mejor candidato historico de la busqueda 3m/6m/12m.
 - `stable-sol-4h`: comparacion estable en SOL, mas lenta pero util para medir consistencia.
 
 ```text

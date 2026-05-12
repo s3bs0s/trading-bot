@@ -124,6 +124,14 @@ class PaperTradingTest(unittest.TestCase):
         self.assertAlmostEqual(preset.risk_config.position_size_pct, 0.60)
         self.assertGreaterEqual(preset.lookback_candles, 500)
 
+    def test_balanced_btc_four_hour_preset_uses_btc_pullback(self):
+        preset = build_preset("balanced-btc-4h")
+
+        self.assertEqual(preset.symbol, "BTCUSDT")
+        self.assertEqual(preset.interval, "4h")
+        self.assertAlmostEqual(preset.risk_config.position_size_pct, 0.30)
+        self.assertGreaterEqual(preset.lookback_candles, 500)
+
     def test_first_live_run_processes_only_latest_closed_candle(self):
         candles = make_candles([100.0, 101.0, 102.0])
         state = make_state()

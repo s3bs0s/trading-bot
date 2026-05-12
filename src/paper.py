@@ -32,6 +32,7 @@ PAPER_PRESETS = [
     "active-eth-1h",
     "aggressive-eth-30m",
     "growth-eth-4h",
+    "balanced-btc-4h",
     "stable-sol-4h",
     "experimental-eth-1m",
 ]
@@ -236,6 +237,36 @@ def build_preset(name: str) -> PaperPreset:
             strategy_label=f"growth_4h_{candidate.label}",
             strategy=build_aggressive_strategy(candidate),
             risk_config=build_aggressive_risk(candidate),
+            lookback_candles=540,
+        )
+
+    if name == "balanced-btc-4h":
+        return PaperPreset(
+            name=name,
+            symbol="BTCUSDT",
+            interval="4h",
+            strategy_label="balanced_btc_4h_pullback_f20_t100_pb12_sl0.02_tp0.04_rsi50-75",
+            strategy=PullbackInUptrend(
+                fast_window=20,
+                trend_window=100,
+                pullback_window=12,
+                min_pullback_pct=0.02,
+            ),
+            risk_config=RiskConfig(
+                stop_loss_pct=0.02,
+                take_profit_pct=0.04,
+                max_drawdown_pct=0.12,
+                max_consecutive_losses=3,
+                loss_streak_cooldown_bars=18,
+                require_price_above_trend=True,
+                trend_filter_window=100,
+                require_rsi_confirmation=True,
+                rsi_window=14,
+                rsi_min=50.0,
+                rsi_max=75.0,
+                cooldown_bars_after_loss=1,
+                position_size_pct=0.30,
+            ),
             lookback_candles=540,
         )
 

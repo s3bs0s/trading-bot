@@ -32,6 +32,7 @@ DEFAULT_RENDER_PRESETS = (
     "active-eth-1h",
     "aggressive-eth-30m",
     "growth-eth-4h",
+    "balanced-btc-4h",
     "stable-sol-4h",
 )
 
@@ -55,6 +56,11 @@ PRESET_DESCRIPTIONS = {
         "title": "Crecimiento ETH 4h",
         "summary": "Experimento 4h orientado a mas crecimiento. Busca pullbacks en tendencia de ETH y usa una posicion ficticia mas grande por operacion.",
         "risk": "Puede ganar mas que candidatos conservadores, pero una senal mala tambien pesa mas.",
+    },
+    "balanced-btc-4h": {
+        "title": "Balance BTC 4h",
+        "summary": "Candidato 4h en BTC. Fue el mejor en la busqueda 3m/6m/12m, con pullbacks en tendencia y riesgo moderado.",
+        "risk": "Mas lento que los ETH agresivos; sirve para comparar consistencia en otra moneda.",
     },
     "stable-sol-4h": {
         "title": "Estable SOL 4h",
