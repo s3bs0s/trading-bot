@@ -6,10 +6,12 @@ from unittest.mock import patch
 
 from src.paper_service import PaperServiceConfig
 from src.render_app import (
+    active_preset_names,
     apply_env_overrides,
     count_trades_closed_on,
     dashboard_summary,
     local_time_text,
+    parse_paused_preset_names,
     parse_preset_names,
     state_backup_payload,
 )
@@ -38,8 +40,7 @@ class RenderAppTest(unittest.TestCase):
         self.assertEqual(
             parse_preset_names(None),
             [
-                "aggressive-eth-2h",
-                "active-eth-1h",
+                "rsi-eth-2h",
                 "aggressive-eth-30m",
                 "growth-eth-4h",
                 "balanced-btc-4h",
@@ -51,6 +52,29 @@ class RenderAppTest(unittest.TestCase):
         names = parse_preset_names("stable-sol-4h, experimental-eth-1m")
 
         self.assertEqual(names, ["stable-sol-4h", "experimental-eth-1m"])
+
+    def test_paused_presets_default_to_recent_underperformers(self):
+        self.assertEqual(parse_paused_preset_names(None), ["aggressive-eth-2h", "active-eth-1h"])
+
+    def test_active_preset_names_filters_paused_render_presets(self):
+        env = {
+            "PAPER_PRESETS": "rsi-eth-2h,aggressive-eth-2h,active-eth-1h,stable-sol-4h",
+        }
+
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(
+                active_preset_names(),
+                ["rsi-eth-2h", "aggressive-eth-30m", "growth-eth-4h", "balanced-btc-4h", "stable-sol-4h"],
+            )
+
+    def test_active_preset_names_can_use_strict_render_override(self):
+        env = {
+            "PAPER_PRESETS": "rsi-eth-2h,stable-sol-4h",
+            "PAPER_STRICT_PRESETS": "true",
+        }
+
+        with patch.dict(os.environ, env, clear=False):
+            self.assertEqual(active_preset_names(), ["rsi-eth-2h", "stable-sol-4h"])
 
     def test_count_trades_closed_on_uses_colombia_day(self):
         trades = [

@@ -1,5 +1,5 @@
 {
-  "preset": "aggressive-eth-2h",
+  "preset": "rsi-eth-2h",
   "initial_cash": 1000.0,
   "fee_rate": 0.001,
   "state_dir": "paper_state",

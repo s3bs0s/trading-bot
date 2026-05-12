@@ -24,10 +24,11 @@ from src.data import Candle, fetch_binance_klines
 from src.report import money, pct, safe_name
 from src.risk import RiskConfig, RiskManager, RiskState
 from src.state_store import state_store_from_env
-from src.strategy import BUY, SELL, PullbackInUptrend
+from src.strategy import BUY, SELL, PullbackInUptrend, RsiTrendBounce
 
 
 PAPER_PRESETS = [
+    "rsi-eth-2h",
     "aggressive-eth-2h",
     "active-eth-1h",
     "aggressive-eth-30m",
@@ -100,6 +101,36 @@ def display_time_text(value: str) -> str:
 
 
 def build_preset(name: str) -> PaperPreset:
+    if name == "rsi-eth-2h":
+        return PaperPreset(
+            name=name,
+            symbol="ETHUSDT",
+            interval="2h",
+            strategy_label="rsi_eth_2h_bounce_t30_buy38_sell58_sl0.025_tp0.04_pos0.60",
+            strategy=RsiTrendBounce(
+                trend_window=30,
+                buy_rsi=38.0,
+                sell_rsi=58.0,
+            ),
+            risk_config=RiskConfig(
+                stop_loss_pct=0.025,
+                take_profit_pct=0.04,
+                trailing_stop_pct=0.004,
+                trailing_activation_pct=0.006,
+                max_drawdown_pct=0.18,
+                max_consecutive_losses=4,
+                loss_streak_cooldown_bars=18,
+                require_price_above_trend=True,
+                trend_filter_window=30,
+                require_rsi_confirmation=False,
+                crash_lookback_bars=12,
+                crash_block_pct=0.10,
+                cooldown_bars_after_loss=1,
+                position_size_pct=0.60,
+            ),
+            lookback_candles=360,
+        )
+
     if name == "experimental-eth-1m":
         candidate = AggressiveCandidate(
             symbol="ETHUSDT",

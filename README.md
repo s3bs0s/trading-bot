@@ -199,9 +199,9 @@ py -m src.paper
 Genera:
 
 ```text
-reports/paper/paper_aggressive-eth-2h_ETHUSDT_2h.html
-reports/paper/paper_aggressive-eth-2h_ETHUSDT_2h.csv
-paper_state/paper_aggressive-eth-2h_ETHUSDT_2h.json
+reports/paper/paper_rsi-eth-2h_ETHUSDT_2h.html
+reports/paper/paper_rsi-eth-2h_ETHUSDT_2h.csv
+paper_state/paper_rsi-eth-2h_ETHUSDT_2h.json
 ```
 
 La consola imprime la ruta completa desde `C:\...`.
@@ -291,7 +291,7 @@ docker compose up -d --build
 El bot queda corriendo en segundo plano y el reporte se publica en:
 
 ```text
-http://IP_DEL_SERVIDOR:8080/paper/paper_aggressive-eth-2h_ETHUSDT_2h.html
+http://IP_DEL_SERVIDOR:8080/paper/paper_rsi-eth-2h_ETHUSDT_2h.html
 ```
 
 Mas detalle en `DEPLOY.md`.
@@ -309,19 +309,26 @@ Para usar Render como servicio web:
 Variables opcionales:
 
 ```text
-PAPER_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,growth-eth-4h,balanced-btc-4h,stable-sol-4h
+PAPER_PRESETS=rsi-eth-2h,aggressive-eth-30m,growth-eth-4h,balanced-btc-4h,stable-sol-4h
+PAPER_PAUSED_PRESETS=aggressive-eth-2h,active-eth-1h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
 ```
 
+Si quieres que Render use exactamente la lista de `PAPER_PRESETS` sin agregar los candidatos por defecto del codigo, usa `PAPER_STRICT_PRESETS=true`.
+
 La URL de Render mostrara un menu con reportes separados:
 
-- `aggressive-eth-2h`: base actual, menos activa, usa velas de 2 horas.
-- `active-eth-1h`: experimento mas activo, usa velas de 1 hora.
+- `rsi-eth-2h`: nueva candidata activa. Compra rebotes de RSI en ETH cuando el precio sigue encima de la tendencia de 30 velas.
 - `aggressive-eth-30m`: experimento rapido, busca mas oportunidades con velas de 30 minutos.
 - `growth-eth-4h`: experimento ETH 4h de crecimiento, usa pullbacks y posicion ficticia mas grande.
 - `balanced-btc-4h`: comparacion BTC 4h, mejor candidato historico de la busqueda 3m/6m/12m.
 - `stable-sol-4h`: comparacion estable en SOL, mas lenta pero util para medir consistencia.
+
+Pausadas por bajo rendimiento reciente:
+
+- `aggressive-eth-2h`
+- `active-eth-1h`
 
 ```text
 https://TU-SERVICIO.onrender.com/
@@ -481,6 +488,19 @@ reports/aggressive_search_quick_v1/aggressive_results.csv
 ```
 
 Resultado actual: ETH 2h breakout fue el mejor en los ultimos 120 dias, pero fallo en los 120 dias anteriores. Es candidato de experimento agresivo, no candidato para dinero real.
+
+## Ajuste actual de paper trading
+
+Se pausaron `aggressive-eth-2h` y `active-eth-1h` por bajo rendimiento reciente en paper.
+
+Nueva candidata activa: `rsi-eth-2h`.
+
+- Activo: ETH/USDT.
+- Temporalidad: 2h.
+- Idea: comprar rebotes de RSI cuando ETH sigue por encima de la tendencia de 30 velas.
+- Regla de entrada: RSI rebota desde zona baja y el precio sigue sobre tendencia.
+- Regla de salida: RSI llega a zona de rebote, stop loss, take profit o trailing stop.
+- Riesgo: sigue siendo experimental; solo paper trading.
 
 ## Advertencia
 

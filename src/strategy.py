@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.data import Candle
+from src.risk import relative_strength_index
 
 
 BUY = "BUY"
@@ -178,3 +179,47 @@ class RangeBreakoutInTrend:
             return HOLD, "breakout without enough volume"
 
         return HOLD, "no range breakout"
+
+
+@dataclass(frozen=True)
+class RsiTrendBounce:
+    trend_window: int = 30
+    buy_rsi: float = 38.0
+    sell_rsi: float = 58.0
+    rsi_window: int = 14
+
+    def __post_init__(self) -> None:
+        if self.trend_window <= 1 or self.rsi_window <= 1:
+            raise ValueError("RSI bounce windows must be greater than one")
+        if self.buy_rsi <= 0 or self.sell_rsi <= 0:
+            raise ValueError("RSI thresholds must be greater than zero")
+        if self.buy_rsi >= self.sell_rsi:
+            raise ValueError("buy_rsi must be lower than sell_rsi")
+
+    def signal_at(self, candles: list[Candle], index: int) -> tuple[str, str]:
+        needed = max(self.trend_window + 1, self.rsi_window + 1)
+        if index <= 0 or len(candles[: index + 1]) < needed:
+            return HOLD, "waiting for enough RSI bounce data"
+
+        closes_now = [candle.close for candle in candles[: index + 1]]
+        closes_prev = [candle.close for candle in candles[:index]]
+        trend_now = simple_moving_average(closes_now, self.trend_window)
+        trend_prev = simple_moving_average(closes_prev, self.trend_window)
+        rsi_now = relative_strength_index(candles, index, self.rsi_window)
+        rsi_prev = relative_strength_index(candles, index - 1, self.rsi_window)
+        if None in (trend_now, trend_prev, rsi_now, rsi_prev):
+            return HOLD, "waiting for enough RSI bounce data"
+
+        current_close = candles[index].close
+        if current_close < trend_now:
+            return SELL, f"price below trend MA {self.trend_window}"
+
+        if rsi_now >= self.sell_rsi:
+            return SELL, f"RSI rebound reached {rsi_now:.2f}"
+
+        trend_is_not_falling = trend_now >= trend_prev
+        rsi_is_recovering = rsi_prev <= self.buy_rsi and rsi_now > rsi_prev
+        if trend_is_not_falling and current_close > trend_now and rsi_is_recovering:
+            return BUY, f"RSI rebound from {rsi_prev:.2f} to {rsi_now:.2f} above trend MA {self.trend_window}"
+
+        return HOLD, "no RSI rebound"

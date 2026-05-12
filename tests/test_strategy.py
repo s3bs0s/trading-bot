@@ -2,7 +2,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 
 from src.data import Candle
-from src.strategy import BUY, HOLD, SELL, MovingAverageCrossover, PullbackInUptrend, RangeBreakoutInTrend
+from src.strategy import BUY, HOLD, SELL, MovingAverageCrossover, PullbackInUptrend, RangeBreakoutInTrend, RsiTrendBounce
 
 
 def make_candles(closes: list[float]) -> list[Candle]:
@@ -116,6 +116,26 @@ class RangeBreakoutInTrendTest(unittest.TestCase):
 
         self.assertEqual(signal, HOLD)
         self.assertIn("without enough volume", reason)
+
+
+class RsiTrendBounceTest(unittest.TestCase):
+    def test_buy_signal_after_rsi_rebounds_above_trend(self):
+        candles = make_candles([100, 101, 102, 103, 104, 102, 101, 103])
+        strategy = RsiTrendBounce(trend_window=4, buy_rsi=45.0, sell_rsi=70.0, rsi_window=3)
+
+        signal, reason = strategy.signal_at(candles, index=7)
+
+        self.assertEqual(signal, BUY)
+        self.assertIn("RSI rebound", reason)
+
+    def test_sell_signal_when_rebound_gets_hot(self):
+        candles = make_candles([100, 101, 102, 103, 104, 105])
+        strategy = RsiTrendBounce(trend_window=4, buy_rsi=45.0, sell_rsi=70.0, rsi_window=3)
+
+        signal, reason = strategy.signal_at(candles, index=5)
+
+        self.assertEqual(signal, SELL)
+        self.assertIn("RSI rebound reached", reason)
 
 
 if __name__ == "__main__":

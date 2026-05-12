@@ -28,15 +28,23 @@ from src.paper_service import PaperServiceConfig, last_equity, load_config
 
 
 DEFAULT_RENDER_PRESETS = (
-    "aggressive-eth-2h",
-    "active-eth-1h",
+    "rsi-eth-2h",
     "aggressive-eth-30m",
     "growth-eth-4h",
     "balanced-btc-4h",
     "stable-sol-4h",
 )
+DEFAULT_PAUSED_RENDER_PRESETS = (
+    "aggressive-eth-2h",
+    "active-eth-1h",
+)
 
 PRESET_DESCRIPTIONS = {
+    "rsi-eth-2h": {
+        "title": "Rebote RSI ETH 2h",
+        "summary": "Nueva candidata activa. Compra rebotes de RSI en ETH cuando el precio sigue encima de la tendencia de 30 velas.",
+        "risk": "Mas activa que 4h; sigue siendo experimental y puede fallar en mercados laterales o bajistas.",
+    },
     "aggressive-eth-2h": {
         "title": "Base agresiva 2h",
         "summary": "Estrategia principal actual. Busca rupturas en ETH con velas de 2 horas. Opera poco, filtra mas ruido y sirve como comparacion base.",
@@ -213,10 +221,31 @@ def parse_preset_names(raw_value: str | None) -> list[str]:
     return names or list(DEFAULT_RENDER_PRESETS)
 
 
+def parse_paused_preset_names(raw_value: str | None) -> list[str]:
+    if raw_value is None:
+        return list(DEFAULT_PAUSED_RENDER_PRESETS)
+    return [name.strip() for name in raw_value.split(",") if name.strip()]
+
+
+def active_preset_names() -> list[str]:
+    requested = parse_preset_names(os.getenv("PAPER_PRESETS"))
+    strict = str(os.getenv("PAPER_STRICT_PRESETS") or "").lower() in ("1", "true", "yes")
+    if strict:
+        preset_names = requested
+    else:
+        preset_names = []
+        for name in [*DEFAULT_RENDER_PRESETS, *requested]:
+            if name not in preset_names:
+                preset_names.append(name)
+
+    paused = set(parse_paused_preset_names(os.getenv("PAPER_PAUSED_PRESETS")))
+    return [name for name in preset_names if name not in paused]
+
+
 def load_render_configs() -> list[PaperServiceConfig]:
     config_path = Path(os.getenv("PAPER_CONFIG", "config/paper.example.json"))
     base_config = apply_env_overrides(load_config(config_path), include_preset=False)
-    preset_names = parse_preset_names(os.getenv("PAPER_PRESETS"))
+    preset_names = active_preset_names()
     unknown_presets = sorted(set(preset_names) - set(PAPER_PRESETS))
     if unknown_presets:
         raise ValueError(f"unknown paper presets for Render: {', '.join(unknown_presets)}")
@@ -436,8 +465,9 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
         total_class = "positive" if float(summary["total_return"]) >= 0 else "negative"
         best_class = "positive" if float(summary["best_return"]) >= 0 else "negative"
         worst_class = "positive" if float(summary["worst_return"]) >= 0 else "negative"
+        paused_text = ", ".join(parse_paused_preset_names(os.getenv("PAPER_PAUSED_PRESETS"))) or "ninguna"
         cards = []
-        for preset in parse_preset_names(os.getenv("PAPER_PRESETS")):
+        for preset in active_preset_names():
             report = reports.get(preset, {})
             details = PRESET_DESCRIPTIONS.get(
                 preset,
@@ -525,7 +555,8 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
       {''.join(cards)}
     </div>
     <div class="note">
-      El reporte base cuida mas el ruido. El reporte activo busca mas oportunidades. Comparalos por varios dias antes de sacar conclusiones.
+      Pausadas por bajo rendimiento reciente: {escape(paused_text)}.
+      El reporte estable cuida mas el ruido. Los reportes activos buscan mas oportunidades. Comparalos por varios dias antes de sacar conclusiones.
       Ultimo chequeo general: {escape(local_time_text(status.get("last_check_at")))}.
     </div>
   </main>
