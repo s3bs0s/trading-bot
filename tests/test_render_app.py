@@ -54,7 +54,10 @@ class RenderAppTest(unittest.TestCase):
         self.assertEqual(names, ["stable-sol-4h", "experimental-eth-1m"])
 
     def test_paused_presets_default_to_recent_underperformers(self):
-        self.assertEqual(parse_paused_preset_names(None), ["aggressive-eth-2h", "active-eth-1h"])
+        self.assertEqual(
+            parse_paused_preset_names(None),
+            ["aggressive-eth-2h", "active-eth-1h", "aggressive-eth-30m", "balanced-btc-4h"],
+        )
 
     def test_active_preset_names_filters_paused_render_presets(self):
         env = {
@@ -64,7 +67,7 @@ class RenderAppTest(unittest.TestCase):
         with patch.dict(os.environ, env, clear=False):
             self.assertEqual(
                 active_preset_names(),
-                ["rsi-eth-2h", "aggressive-eth-30m", "growth-eth-4h", "balanced-btc-4h", "stable-sol-4h"],
+                ["rsi-eth-2h", "growth-eth-4h", "stable-sol-4h"],
             )
 
     def test_active_preset_names_can_use_strict_render_override(self):

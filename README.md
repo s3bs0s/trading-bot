@@ -310,7 +310,7 @@ Variables opcionales:
 
 ```text
 PAPER_PRESETS=rsi-eth-2h,aggressive-eth-30m,growth-eth-4h,balanced-btc-4h,stable-sol-4h
-PAPER_PAUSED_PRESETS=aggressive-eth-2h,active-eth-1h
+PAPER_PAUSED_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,balanced-btc-4h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
 ```
@@ -320,15 +320,15 @@ Si quieres que Render use exactamente la lista de `PAPER_PRESETS` sin agregar lo
 La URL de Render mostrara un menu con reportes separados:
 
 - `rsi-eth-2h`: nueva candidata activa. Compra rebotes de RSI en ETH cuando el precio sigue encima de la tendencia de 30 velas.
-- `aggressive-eth-30m`: experimento rapido, busca mas oportunidades con velas de 30 minutos.
 - `growth-eth-4h`: experimento ETH 4h de crecimiento, usa pullbacks y posicion ficticia mas grande.
-- `balanced-btc-4h`: comparacion BTC 4h, mejor candidato historico de la busqueda 3m/6m/12m.
 - `stable-sol-4h`: comparacion estable en SOL, mas lenta pero util para medir consistencia.
 
 Pausadas por bajo rendimiento reciente:
 
 - `aggressive-eth-2h`
 - `active-eth-1h`
+- `aggressive-eth-30m`
+- `balanced-btc-4h`
 
 ```text
 https://TU-SERVICIO.onrender.com/

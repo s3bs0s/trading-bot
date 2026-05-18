@@ -37,6 +37,8 @@ DEFAULT_RENDER_PRESETS = (
 DEFAULT_PAUSED_RENDER_PRESETS = (
     "aggressive-eth-2h",
     "active-eth-1h",
+    "aggressive-eth-30m",
+    "balanced-btc-4h",
 )
 
 PRESET_DESCRIPTIONS = {
@@ -222,9 +224,13 @@ def parse_preset_names(raw_value: str | None) -> list[str]:
 
 
 def parse_paused_preset_names(raw_value: str | None) -> list[str]:
+    names = list(DEFAULT_PAUSED_RENDER_PRESETS)
     if raw_value is None:
-        return list(DEFAULT_PAUSED_RENDER_PRESETS)
-    return [name.strip() for name in raw_value.split(",") if name.strip()]
+        return names
+    for name in [name.strip() for name in raw_value.split(",") if name.strip()]:
+        if name not in names:
+            names.append(name)
+    return names
 
 
 def active_preset_names() -> list[str]:
