@@ -29,6 +29,8 @@ from src.strategy import BUY, SELL, PullbackInUptrend, RsiTrendBounce
 
 PAPER_PRESETS = [
     "rsi-eth-2h",
+    "rsi-sol-1h",
+    "rsi-sol-4h",
     "aggressive-eth-2h",
     "active-eth-1h",
     "aggressive-eth-30m",
@@ -129,6 +131,66 @@ def build_preset(name: str) -> PaperPreset:
                 position_size_pct=0.60,
             ),
             lookback_candles=360,
+        )
+
+    if name == "rsi-sol-1h":
+        return PaperPreset(
+            name=name,
+            symbol="SOLUSDT",
+            interval="1h",
+            strategy_label="rsi_sol_1h_bounce_t30_buy48_sell68_sl0.025_tp0.04_pos0.60",
+            strategy=RsiTrendBounce(
+                trend_window=30,
+                buy_rsi=48.0,
+                sell_rsi=68.0,
+            ),
+            risk_config=RiskConfig(
+                stop_loss_pct=0.025,
+                take_profit_pct=0.04,
+                trailing_stop_pct=0.004,
+                trailing_activation_pct=0.006,
+                max_drawdown_pct=0.12,
+                max_consecutive_losses=3,
+                loss_streak_cooldown_bars=18,
+                require_price_above_trend=True,
+                trend_filter_window=30,
+                require_rsi_confirmation=False,
+                crash_lookback_bars=12,
+                crash_block_pct=0.10,
+                cooldown_bars_after_loss=1,
+                position_size_pct=0.60,
+            ),
+            lookback_candles=720,
+        )
+
+    if name == "rsi-sol-4h":
+        return PaperPreset(
+            name=name,
+            symbol="SOLUSDT",
+            interval="4h",
+            strategy_label="rsi_sol_4h_bounce_t20_buy42_sell62_sl0.025_tp0.04_pos0.60",
+            strategy=RsiTrendBounce(
+                trend_window=20,
+                buy_rsi=42.0,
+                sell_rsi=62.0,
+            ),
+            risk_config=RiskConfig(
+                stop_loss_pct=0.025,
+                take_profit_pct=0.04,
+                trailing_stop_pct=0.004,
+                trailing_activation_pct=0.006,
+                max_drawdown_pct=0.12,
+                max_consecutive_losses=3,
+                loss_streak_cooldown_bars=18,
+                require_price_above_trend=True,
+                trend_filter_window=20,
+                require_rsi_confirmation=False,
+                crash_lookback_bars=12,
+                crash_block_pct=0.10,
+                cooldown_bars_after_loss=1,
+                position_size_pct=0.60,
+            ),
+            lookback_candles=540,
         )
 
     if name == "experimental-eth-1m":

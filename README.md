@@ -309,7 +309,7 @@ Para usar Render como servicio web:
 Variables opcionales:
 
 ```text
-PAPER_PRESETS=rsi-eth-2h,aggressive-eth-30m,growth-eth-4h,balanced-btc-4h,stable-sol-4h
+PAPER_PRESETS=rsi-eth-2h,rsi-sol-1h,rsi-sol-4h,growth-eth-4h,stable-sol-4h
 PAPER_PAUSED_PRESETS=aggressive-eth-2h,active-eth-1h,aggressive-eth-30m,balanced-btc-4h
 PAPER_INITIAL_CASH=1000
 PAPER_SLEEP_SECONDS=60
@@ -320,6 +320,8 @@ Si quieres que Render use exactamente la lista de `PAPER_PRESETS` sin agregar lo
 La URL de Render mostrara un menu con reportes separados:
 
 - `rsi-eth-2h`: nueva candidata activa. Compra rebotes de RSI en ETH cuando el precio sigue encima de la tendencia de 30 velas.
+- `rsi-sol-1h`: nueva candidata activa en SOL, mas frecuente. En prueba rapida reciente tuvo mas trades y mejor retorno promedio que las estrategias pausadas.
+- `rsi-sol-4h`: nueva candidata SOL mas lenta. En prueba rapida reciente tuvo menor drawdown y ventanas sin perdida cerrada.
 - `growth-eth-4h`: experimento ETH 4h de crecimiento, usa pullbacks y posicion ficticia mas grande.
 - `stable-sol-4h`: comparacion estable en SOL, mas lenta pero util para medir consistencia.
 
@@ -501,6 +503,13 @@ Nueva candidata activa: `rsi-eth-2h`.
 - Regla de entrada: RSI rebota desde zona baja y el precio sigue sobre tendencia.
 - Regla de salida: RSI llega a zona de rebote, stop loss, take profit o trailing stop.
 - Riesgo: sigue siendo experimental; solo paper trading.
+
+Nuevas candidatas agregadas despues de revisar que el paper iba mal:
+
+- `rsi-sol-1h`: SOL/USDT 1h, RSI rebote sobre tendencia 30, compra RSI 48, venta RSI 68, stop 2.5%, take profit 4%, posicion ficticia 60%.
+- `rsi-sol-4h`: SOL/USDT 4h, RSI rebote sobre tendencia 20, compra RSI 42, venta RSI 62, stop 2.5%, take profit 4%, posicion ficticia 60%.
+
+Las estrategias pausadas no se borran: el tablero debe mostrarlas como historico pausado con su perdida/ganancia acumulada.
 
 ## Advertencia
 

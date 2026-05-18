@@ -13,6 +13,7 @@ from src.render_app import (
     local_time_text,
     parse_paused_preset_names,
     parse_preset_names,
+    report_from_saved_state,
     state_backup_payload,
 )
 
@@ -41,6 +42,8 @@ class RenderAppTest(unittest.TestCase):
             parse_preset_names(None),
             [
                 "rsi-eth-2h",
+                "rsi-sol-1h",
+                "rsi-sol-4h",
                 "aggressive-eth-30m",
                 "growth-eth-4h",
                 "balanced-btc-4h",
@@ -67,7 +70,7 @@ class RenderAppTest(unittest.TestCase):
         with patch.dict(os.environ, env, clear=False):
             self.assertEqual(
                 active_preset_names(),
-                ["rsi-eth-2h", "growth-eth-4h", "stable-sol-4h"],
+                ["rsi-eth-2h", "rsi-sol-1h", "rsi-sol-4h", "growth-eth-4h", "stable-sol-4h"],
             )
 
     def test_active_preset_names_can_use_strict_render_override(self):
@@ -124,6 +127,27 @@ class RenderAppTest(unittest.TestCase):
         self.assertEqual(summary["closed_trades"], 3)
         self.assertEqual(summary["open_positions"], 1)
         self.assertIn("BUY", summary["last_alert"])
+
+    def test_report_from_saved_state_preserves_paused_loss(self):
+        state = {
+            "preset": "balanced-btc-4h",
+            "symbol": "BTCUSDT",
+            "interval": "4h",
+            "initial_cash": 1000.0,
+            "cash": 991.65,
+            "position_qty": 0.0,
+            "updated_at": "2026-05-18 15:00:00 UTC",
+            "last_action": "SELL - stop loss hit",
+            "trades": [{"exit_time": "2026-05-18 14:00", "pnl": -8.35}],
+            "equity_curve": [{"equity": 991.65}],
+        }
+
+        report = report_from_saved_state(state)
+
+        self.assertEqual(report["preset"], "balanced-btc-4h")
+        self.assertEqual(report["equity"], 991.65)
+        self.assertEqual(report["realized_pnl"], -8.35)
+        self.assertIn("PAUSADA", report["last_action"])
 
     def test_state_backup_payload_includes_local_state_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:

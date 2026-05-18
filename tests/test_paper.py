@@ -118,6 +118,17 @@ class PaperTradingTest(unittest.TestCase):
         self.assertFalse(preset.risk_config.require_rsi_confirmation)
         self.assertGreaterEqual(preset.lookback_candles, 300)
 
+    def test_rsi_sol_presets_use_rebound_strategy(self):
+        one_hour = build_preset("rsi-sol-1h")
+        four_hour = build_preset("rsi-sol-4h")
+
+        self.assertEqual(one_hour.symbol, "SOLUSDT")
+        self.assertEqual(one_hour.interval, "1h")
+        self.assertAlmostEqual(one_hour.risk_config.position_size_pct, 0.60)
+        self.assertFalse(one_hour.risk_config.require_rsi_confirmation)
+        self.assertEqual(four_hour.symbol, "SOLUSDT")
+        self.assertEqual(four_hour.interval, "4h")
+
     def test_aggressive_thirty_minute_preset_uses_fast_eth_candles(self):
         preset = build_preset("aggressive-eth-30m")
 

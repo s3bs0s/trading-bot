@@ -25,10 +25,14 @@ from src.env import load_local_env
 from src.paper import PAPER_PRESETS, run_once
 from src.paper import display_time_text
 from src.paper_service import PaperServiceConfig, last_equity, load_config
+from src.state_store import latest_equity as saved_state_equity
+from src.state_store import state_store_from_env
 
 
 DEFAULT_RENDER_PRESETS = (
     "rsi-eth-2h",
+    "rsi-sol-1h",
+    "rsi-sol-4h",
     "aggressive-eth-30m",
     "growth-eth-4h",
     "balanced-btc-4h",
@@ -46,6 +50,16 @@ PRESET_DESCRIPTIONS = {
         "title": "Rebote RSI ETH 2h",
         "summary": "Nueva candidata activa. Compra rebotes de RSI en ETH cuando el precio sigue encima de la tendencia de 30 velas.",
         "risk": "Mas activa que 4h; sigue siendo experimental y puede fallar en mercados laterales o bajistas.",
+    },
+    "rsi-sol-1h": {
+        "title": "Rebote RSI SOL 1h",
+        "summary": "Nueva candidata mas activa. Compra rebotes de RSI en SOL con velas de 1 hora y filtro de tendencia de 30 velas.",
+        "risk": "Mas oportunidades y mas riesgo de falsas entradas; queda en paper hasta demostrar estabilidad.",
+    },
+    "rsi-sol-4h": {
+        "title": "Rebote RSI SOL 4h",
+        "summary": "Nueva candidata mas limpia. Compra rebotes de RSI en SOL con velas de 4 horas y filtro de tendencia de 20 velas.",
+        "risk": "Menos activa que 1h, pero en la prueba rapida tuvo mejor perfil de drawdown.",
     },
     "aggressive-eth-2h": {
         "title": "Base agresiva 2h",
@@ -194,6 +208,55 @@ def dashboard_summary(status: dict[str, object]) -> dict[str, object]:
     }
 
 
+def report_from_saved_state(state: dict[str, object], status_label: str = "PAUSADA") -> dict[str, object]:
+    trades = list(state.get("trades") or [])
+    updated_at = str(state.get("updated_at") or "")
+    equity = saved_state_equity(state)
+    initial_cash = float(state.get("initial_cash") or 0.0)
+    action = str(state.get("last_action") or "HOLD")
+    return {
+        "preset": str(state.get("preset") or ""),
+        "symbol": str(state.get("symbol") or ""),
+        "interval": str(state.get("interval") or ""),
+        "initial_cash": initial_cash,
+        "equity": equity,
+        "trades": len(trades),
+        "trades_today": count_trades_closed_on(trades, today_colombia_text()),
+        "realized_pnl": total_trade_pnl(trades),
+        "last_action": f"{status_label} - {action}",
+        "last_success_at": updated_at,
+        "last_success_local": local_time_text(updated_at),
+        "open_position": float(state.get("position_qty") or 0.0) > 0,
+        "state_available": True,
+    }
+
+
+def load_saved_report(preset: str, status_label: str = "PAUSADA") -> dict[str, object] | None:
+    try:
+        store = state_store_from_env()
+        if store is None:
+            return None
+        state = store.load(preset)
+    except Exception as error:
+        print(f"Could not load saved paper state for {preset}: {error}")
+        return None
+
+    if state is None:
+        return None
+    return report_from_saved_state(state, status_label=status_label)
+
+
+def paused_report_snapshots(active_reports: dict[str, object]) -> dict[str, dict[str, object]]:
+    paused: dict[str, dict[str, object]] = {}
+    for preset in parse_paused_preset_names(os.getenv("PAPER_PAUSED_PRESETS")):
+        if preset in active_reports:
+            continue
+        report = load_saved_report(preset)
+        if report is not None:
+            paused[preset] = report
+    return paused
+
+
 def apply_env_overrides(config: PaperServiceConfig, include_preset: bool = True) -> PaperServiceConfig:
     values = asdict(config)
     env_map = {
@@ -302,6 +365,8 @@ def snapshot_status() -> dict[str, object]:
     with STATUS_LOCK:
         payload = asdict(STATUS)
     reports = payload.get("reports", {})
+    if isinstance(reports, dict):
+        payload["paused_reports"] = paused_report_snapshots(reports)
     report_errors = [report.get("last_error") for report in reports.values()]
     payload["ok"] = not bool(payload["last_error"]) and not any(report_errors)
     return payload
@@ -443,6 +508,9 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
         if path == "/":
             self.send_home()
             return
+        if path.startswith("/history/"):
+            self.send_history_state(path.removeprefix("/history/"))
+            return
         if path.startswith("/paper/"):
             self.send_paper_file(path.removeprefix("/paper/"))
             return
@@ -467,14 +535,17 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     def send_home(self) -> None:
         status = snapshot_status()
         reports = status.get("reports", {})
-        summary = dashboard_summary(status)
+        paused_reports = dict(status.get("paused_reports", {}))
+        combined_reports = {**dict(reports), **paused_reports}
+        summary = dashboard_summary({"reports": combined_reports})
         total_class = "positive" if float(summary["total_return"]) >= 0 else "negative"
         best_class = "positive" if float(summary["best_return"]) >= 0 else "negative"
         worst_class = "positive" if float(summary["worst_return"]) >= 0 else "negative"
         paused_text = ", ".join(parse_paused_preset_names(os.getenv("PAPER_PAUSED_PRESETS"))) or "ninguna"
         cards = []
-        for preset in active_preset_names():
-            report = reports.get(preset, {})
+
+        def build_card(preset: str, report: dict[str, object], paused: bool = False) -> str:
+            report = report or (paused_reports.get(preset, {}) if paused else reports.get(preset, {}))
             details = PRESET_DESCRIPTIONS.get(
                 preset,
                 {
@@ -486,12 +557,16 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
             latest_report = str(report.get("latest_report") or "")
             report_name = Path(latest_report).name if latest_report else ""
             report_link = f"/paper/{escape(report_name)}" if report_name else "#"
-            disabled = " disabled" if not report_name else ""
-            cards.append(
-                f"""<article class="card">
+            if paused:
+                report_link = f"/history/{escape(preset)}.json"
+            disabled = " disabled" if not report_name and not paused else ""
+            result = report_return_pct(report)
+            result_class = "positive" if result >= 0 else "negative"
+            badge = "PAUSADA" if paused else escape(str(report.get("interval") or "?"))
+            return f"""<article class="card{' paused' if paused else ''}">
     <div class="card-top">
       <h2>{escape(details["title"])}</h2>
-      <span>{escape(str(report.get("interval") or "?"))}</span>
+      <span>{badge}</span>
     </div>
     <p>{escape(details["summary"])}</p>
     <p class="risk">{escape(details["risk"])}</p>
@@ -500,10 +575,18 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
       <div><dt>Accion</dt><dd>{escape(str(report.get("last_action") or "START"))}</dd></div>
       <div><dt>Trades</dt><dd>{escape(str(report.get("trades") or 0))}</dd></div>
       <div><dt>Capital</dt><dd>{escape(f'{float(report.get("equity") or 0):,.2f} USDT')}</dd></div>
+      <div><dt>Resultado</dt><dd class="{result_class}">{escape(f'{result * 100:.2f}%')}</dd></div>
     </dl>
-    <a class="button{disabled}" href="{report_link}">Abrir reporte</a>
+    <a class="button{disabled}" href="{report_link}">{'Ver estado' if paused else 'Abrir reporte'}</a>
   </article>"""
-            )
+
+        for preset in active_preset_names():
+            cards.append(build_card(preset, dict(reports.get(preset, {})), paused=False))
+
+        paused_cards = []
+        for preset in parse_paused_preset_names(os.getenv("PAPER_PAUSED_PRESETS")):
+            if preset in paused_reports:
+                paused_cards.append(build_card(preset, paused_reports[preset], paused=True))
 
         body = f"""<!doctype html>
 <html lang="es">
@@ -525,9 +608,11 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     .metric.alert {{ grid-column: 1 / -1; }}
     .metric.alert strong {{ font-size: 18px; line-height: 1.35; }}
     .card {{ background: white; border: 1px solid #d7e0ef; border-radius: 8px; padding: 22px; }}
+    .card.paused {{ border-color: #f2c7c7; background: #fffafa; }}
     .card-top {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
     .card-top span {{ border: 1px solid #d7e0ef; border-radius: 999px; padding: 6px 10px; color: #496183; }}
     h2 {{ margin: 0; font-size: 24px; }}
+    .section-title {{ margin: 28px 0 14px; }}
     p {{ color: #415675; line-height: 1.45; }}
     .risk {{ color: #8a5a12; }}
     dl {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }}
@@ -560,6 +645,10 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
     <div class="grid">
       {''.join(cards)}
     </div>
+    <h2 class="section-title">Pausadas con resultado historico</h2>
+    <div class="grid">
+      {''.join(paused_cards) if paused_cards else '<p>No hay estados pausados guardados.</p>'}
+    </div>
     <div class="note">
       Pausadas por bajo rendimiento reciente: {escape(paused_text)}.
       El reporte estable cuida mas el ruido. Los reportes activos buscan mas oportunidades. Comparalos por varios dias antes de sacar conclusiones.
@@ -569,6 +658,17 @@ class RenderRequestHandler(BaseHTTPRequestHandler):
 </body>
 </html>"""
         self.send_html(body)
+
+    def send_history_state(self, relative_path: str) -> None:
+        preset = unquote(relative_path).removesuffix(".json")
+        if preset not in PAPER_PRESETS:
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+            return
+        report = load_saved_report(preset)
+        if report is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+            return
+        self.send_json(report)
 
     def send_html(self, body: str) -> None:
         encoded = body.encode("utf-8")
