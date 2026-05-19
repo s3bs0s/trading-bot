@@ -1,19 +1,24 @@
 services:
-  paper-bot:
+  trading-bot:
     build: .
-    command: python -m src.paper_service --config config/paper.example.json
+    container_name: trading-bot
     restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      PORT: "10000"
+      PAPER_STATE_DIR: /app/paper_state
+      PAPER_REPORT_DIR: /app/reports
     volumes:
       - ./paper_state:/app/paper_state
       - ./reports:/app/reports
       - ./logs:/app/logs
+    networks:
+      - web
+      - trading
 
-  report-server:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    volumes:
-      - ./reports:/usr/share/nginx/html:ro
-    depends_on:
-      - paper-bot
+networks:
+  web:
+    external: true
+  trading:
+    name: trading
