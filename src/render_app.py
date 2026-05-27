@@ -30,20 +30,18 @@ from src.state_store import state_store_from_env
 
 
 DEFAULT_RENDER_PRESETS = (
-    "rsi-eth-2h",
-    "rsi-sol-4h",
     "resilient-eth-6h",
-    "aggressive-eth-30m",
-    "growth-eth-4h",
-    "balanced-btc-4h",
-    "stable-sol-4h",
 )
 DEFAULT_PAUSED_RENDER_PRESETS = (
+    "rsi-eth-2h",
+    "rsi-sol-4h",
     "aggressive-eth-2h",
     "active-eth-1h",
     "aggressive-eth-30m",
     "balanced-btc-4h",
     "rsi-sol-1h",
+    "growth-eth-4h",
+    "stable-sol-4h",
 )
 
 PRESET_DESCRIPTIONS = {
