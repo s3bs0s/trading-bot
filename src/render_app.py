@@ -31,8 +31,8 @@ from src.state_store import state_store_from_env
 
 DEFAULT_RENDER_PRESETS = (
     "rsi-eth-2h",
-    "rsi-sol-1h",
     "rsi-sol-4h",
+    "resilient-eth-6h",
     "aggressive-eth-30m",
     "growth-eth-4h",
     "balanced-btc-4h",
@@ -43,6 +43,7 @@ DEFAULT_PAUSED_RENDER_PRESETS = (
     "active-eth-1h",
     "aggressive-eth-30m",
     "balanced-btc-4h",
+    "rsi-sol-1h",
 )
 
 PRESET_DESCRIPTIONS = {
@@ -60,6 +61,11 @@ PRESET_DESCRIPTIONS = {
         "title": "Rebote RSI SOL 4h",
         "summary": "Nueva candidata mas limpia. Compra rebotes de RSI en SOL con velas de 4 horas y filtro de tendencia de 20 velas.",
         "risk": "Menos activa que 1h, pero en la prueba rapida tuvo mejor perfil de drawdown.",
+    },
+    "resilient-eth-6h": {
+        "title": "ETH 6h resiliente",
+        "summary": "Candidata nueva de mas horas. Compra pullbacks de ETH en tendencia de 6h con posicion mas prudente.",
+        "risk": "Menos rapida que 1h/4h; busca evitar ruido. En validacion larga fue mejor que las RSI activas actuales, pero sigue en paper.",
     },
     "aggressive-eth-2h": {
         "title": "Base agresiva 2h",

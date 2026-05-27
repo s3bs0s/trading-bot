@@ -31,6 +31,7 @@ PAPER_PRESETS = [
     "rsi-eth-2h",
     "rsi-sol-1h",
     "rsi-sol-4h",
+    "resilient-eth-6h",
     "aggressive-eth-2h",
     "active-eth-1h",
     "aggressive-eth-30m",
@@ -331,6 +332,38 @@ def build_preset(name: str) -> PaperPreset:
             strategy=build_aggressive_strategy(candidate),
             risk_config=build_aggressive_risk(candidate),
             lookback_candles=540,
+        )
+
+    if name == "resilient-eth-6h":
+        return PaperPreset(
+            name=name,
+            symbol="ETHUSDT",
+            interval="6h",
+            strategy_label="resilient_eth_6h_pullback_f10_t100_pb4_sl0.025_tp0.06_rsi45-80_pos0.35",
+            strategy=PullbackInUptrend(
+                fast_window=10,
+                trend_window=100,
+                pullback_window=4,
+                min_pullback_pct=0.01,
+            ),
+            risk_config=RiskConfig(
+                stop_loss_pct=0.025,
+                take_profit_pct=0.06,
+                trailing_stop_pct=0.006,
+                trailing_activation_pct=0.008,
+                max_drawdown_pct=0.12,
+                max_consecutive_losses=3,
+                loss_streak_cooldown_bars=72,
+                require_price_above_trend=True,
+                trend_filter_window=100,
+                require_rsi_confirmation=True,
+                rsi_window=14,
+                rsi_min=45.0,
+                rsi_max=80.0,
+                cooldown_bars_after_loss=1,
+                position_size_pct=0.35,
+            ),
+            lookback_candles=720,
         )
 
     if name == "balanced-btc-4h":

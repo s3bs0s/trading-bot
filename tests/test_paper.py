@@ -144,6 +144,16 @@ class PaperTradingTest(unittest.TestCase):
         self.assertAlmostEqual(preset.risk_config.position_size_pct, 0.60)
         self.assertGreaterEqual(preset.lookback_candles, 500)
 
+    def test_resilient_eth_six_hour_preset_uses_prudent_pullback(self):
+        preset = build_preset("resilient-eth-6h")
+
+        self.assertEqual(preset.symbol, "ETHUSDT")
+        self.assertEqual(preset.interval, "6h")
+        self.assertIn("resilient_eth_6h_pullback", preset.strategy_label)
+        self.assertAlmostEqual(preset.risk_config.position_size_pct, 0.35)
+        self.assertTrue(preset.risk_config.require_rsi_confirmation)
+        self.assertEqual(preset.risk_config.trend_filter_window, 100)
+
     def test_balanced_btc_four_hour_preset_uses_btc_pullback(self):
         preset = build_preset("balanced-btc-4h")
 
